@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>관계 기록</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+/* 기록 앱 화면 값(브랜드 가이드 9절). 포인트 색만 관계 기록 것(테라코타). 앱은 밝은 화면 고정 */
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1f1f1d;--sub:#6b6a64;--line:#e4e2db;--accent:#a35a3c;--accent-soft:#f4e9e3;--warn-bg:#fff4e0;--warn:#5c3a00;--r:12px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif;font-size:16px;line-height:1.45}
+button{font:inherit;border:0;cursor:pointer}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;width:100%;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:none;min-height:72px}
+.view{display:none;padding:16px 16px 96px;max-width:640px;margin:0 auto}
+.view.on{display:block}
+.top{display:flex;align-items:center;gap:8px;margin:4px 0 16px}
+.top h1{font-size:24px;margin:0;flex:1;font-weight:700}
+.top h2{font-size:20px;margin:0;flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.icon{width:40px;height:40px;border-radius:999px;background:transparent;color:var(--ink);font-size:20px;display:flex;align-items:center;justify-content:center}
+.icon:active{background:var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.sec{margin:20px 4px 8px;font-weight:700;font-size:15px}
+.sec small{display:block;font-weight:400;color:var(--sub);font-size:13px}
+.row{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .grow{flex:1;min-width:0}
+.row .t{font-weight:600}
+.row .s{color:var(--sub);font-size:13px}
+.tap:active{background:#f0eee8}
+.btn{background:var(--accent);color:#fff;border-radius:var(--r);padding:12px 16px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.btn.small{padding:8px 14px;font-size:14px}
+.btn.full{width:100%}
+.btn:disabled{opacity:.5}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:var(--r);padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:center;font-size:14px}
+.warn .grow{flex:1}
+.chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin:2px 4px 0 0;font-weight:600}
+.chip.me{background:#eeede8;color:var(--sub)}
+.chip.btnchip{border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;padding:8px 14px;margin:0 6px 8px 0;font-weight:500}
+.chip.btnchip.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+.muted{color:var(--sub);font-size:13px}
+.empty{padding:20px 16px;color:var(--sub);font-size:14px}
+.fab{position:fixed;right:20px;bottom:24px;background:var(--accent);color:#fff;border-radius:999px;padding:14px 20px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:14px;font-weight:600;margin:0 0 6px 2px}
+.err{color:#b3261e;font-size:14px;min-height:20px;margin:8px 2px}
+.rec{padding:12px 16px;border-top:1px solid var(--line)}
+.rec:first-child{border-top:0}
+.rec .h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rec .h .when{font-size:13px;color:var(--sub)}
+.rec .body{margin-top:4px;white-space:pre-wrap;word-break:break-word}
+.rec .act{margin-left:auto;color:var(--sub);font-size:13px;background:none;padding:2px 4px}
+.dir{font-weight:600;font-size:14px}
+.dir.missed{color:#b3261e}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;z-index:10}
+.sheet-bg.on{display:flex}
+.sheet{background:var(--card);width:100%;border-radius:16px 16px 0 0;padding:16px 16px 24px;max-height:80vh;overflow:auto}
+.sheet h3{margin:4px 4px 12px;font-size:17px}
+.sheet .opt{display:block;width:100%;text-align:left;background:none;padding:14px 12px;border-radius:var(--r)}
+.sheet .opt:active{background:var(--bg)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1f1f1d;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+.toast.on{opacity:.92}
+.search{margin:4px 0 4px}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div class="view" id="v-login">
+  <div class="top"><h1>관계 기록</h1></div>
+  <p class="muted" style="margin:0 2px 16px">업무 기록 아이디와 비밀번호로 들어가요. 한 번만 하면 돼요.</p>
+  <div class="field"><label>아이디</label><input id="l-id" autocomplete="username" placeholder="이름+생일 (예: 홍길동0101)"></div>
+  <div class="field"><label>비밀번호</label><input id="l-pw" type="password" autocomplete="current-password"></div>
+  <div class="err" id="l-err"></div>
+  <button class="btn full" id="l-go">들어가기</button>
+</div>
+
+<!-- 첫 화면 -->
+<div class="view" id="v-home">
+  <div class="top"><h1>관계 기록</h1><button class="icon" id="go-settings" aria-label="설정">⚙</button></div>
+  <div id="setup"></div>
+  <div id="pending-wrap"></div>
+  <div class="sec">사람<small id="people-sub"></small></div>
+  <input class="search" id="q" placeholder="이름이나 번호로 찾기" inputmode="search">
+  <div class="card" id="people" style="margin-top:10px"></div>
+  <button class="fab" id="add-person">+ 사람</button>
+</div>
+
+<!-- 사람 한 명 -->
+<div class="view" id="v-person">
+  <div class="top"><button class="icon back">←</button><h2 id="p-name"></h2><button class="btn ghost small" id="p-edit">고치기</button></div>
+  <div id="p-info" style="margin:0 2px 14px"></div>
+  <div class="card" style="padding:12px">
+    <textarea id="m-body" placeholder="짧은 메모 (쓰고 싶을 때만)" maxlength="500"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+      <button class="chip btnchip" id="m-area" style="margin:0"></button>
+      <span class="muted" style="flex:1" id="m-area-help"></span>
+      <button class="btn small" id="m-save">메모 저장</button>
+    </div>
+  </div>
+  <div class="sec">기록</div>
+  <div class="card" id="p-records"></div>
+</div>
+
+<!-- 등록·고치기 -->
+<div class="view" id="v-form">
+  <div class="top"><button class="icon back">←</button><h2 id="f-title">사람 등록</h2></div>
+  <div id="f-attach"></div>
+  <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="예: 김민수 (오레진 고객)"></div>
+  <div class="field"><label>번호</label><textarea id="f-phones" style="min-height:52px" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
+  <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 여러 개 고를 수 있어요. 맨 처음 고른 것에 통화가 들어가요</span></label><div id="f-areas"></div>
+    <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
+  <div class="err" id="f-err"></div>
+  <button class="btn full" id="f-save">저장</button>
+  <button class="btn ghost full" id="f-del" style="margin-top:10px;display:none">이 사람 지우기</button>
+</div>
+
+<!-- 설정 -->
+<div class="view" id="v-settings">
+  <div class="top"><button class="icon back">←</button><h2>설정</h2></div>
+  <div class="sec">제외 번호<small>여기 있는 번호와 통화하면 묻지도 기록하지도 않아요. 폰 안에만 있어요.</small></div>
+  <div style="display:flex;gap:8px;margin-bottom:10px"><input id="x-add" inputmode="tel" placeholder="번호 더하기"><button class="btn small" id="x-go">더하기</button></div>
+  <button class="btn ghost full small" id="x-contacts" style="margin-bottom:10px">폰 연락처 번호를 모두 제외에 넣기</button>
+  <div class="card" id="x-list"></div>
+  <div class="sec">계정</div>
+  <div class="card"><div class="row"><div class="grow"><div class="t" id="s-me"></div><div class="s">업무 기록에서 볼 수 있는 영역이 여기서도 보여요</div></div><button class="btn ghost small" id="s-out">나가기</button></div></div>
+  <p class="muted" style="text-align:center;margin-top:20px" id="s-ver"></p>
+</div>
+
+<div class="sheet-bg" id="sheet"><div class="sheet" id="sheet-in"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const N = window.Native || {  // 브라우저에서 화면만 볼 때
+  token: () => localStorage.t || '', setToken: (t) => { localStorage.t = t; }, version: () => 'web', rpc: () => {}, pending: () => '[]',
+  answered() {}, notPerson() {}, excluded: () => '[]', exclude() {}, unexclude() {}, norm: (p) => String(p).replace(/\D/g, ''),
+  perms: () => '{"callLog":true,"phoneState":true,"notif":true,"battery":true}', askPerms() {}, importContacts() {}, openBattery() {}, openAppSettings() {}, syncNow() {}, close() {},
+};
+
+// ---- 서버 ----
+let cbN = 0; const cbs = {};
+function call(fn, args) {
+  return new Promise((res) => { const id = 'c' + (++cbN); cbs[id] = res; N.rpc(fn, JSON.stringify(args), id); });
+}
+window.__rpc = (id, status, body) => {
+  const f = cbs[id]; delete cbs[id];
+  let data = null; try { data = JSON.parse(body); } catch (e) {}
+  if (f) f({ status, data });
+};
+async function rpc(fn, args) {
+  const r = await call(fn, Object.assign({ p_token: N.token() }, args || {}));
+  if (r.status === 0) throw new Error('인터넷이 안 돼요. 잠시 뒤 다시 해 주세요.');
+  if (r.status >= 400) {
+    if (r.data && r.data.message === 'auth') { N.setToken(''); show('login'); throw new Error('다시 들어가 주세요.'); }
+    throw new Error('저장하지 못했어요. (' + ((r.data && r.data.message) || r.status) + ')');
+  }
+  if (r.data && r.data.error) throw new Error(r.data.error);
+  return r.data;
+}
+
+// ---- 상태 ----
+let D = { me: { name: '', areas: [] }, people: [], records: [] };
+let cur = null;          // 보고 있는 사람 id
+let form = null;         // {id, areas:[], fromPhone}
+let memoArea = null;
+const stack = ['home'];
+
+function show(v, push) {
+  document.querySelectorAll('.view').forEach((e) => e.classList.remove('on'));
+  $('#v-' + v).classList.add('on');
+  if (v === 'login' || v === 'home') stack.length = 0, stack.push(v);
+  else if (push !== false && stack[stack.length - 1] !== v) stack.push(v);
+  window.scrollTo(0, 0);
+}
+// 뒤로 가기: 열린 창 → 직전 화면 → 첫 화면에서만 앱 닫힘(false)
+window.appBack = function () {
+  if ($('#sheet').classList.contains('on')) { closeSheet(); return true; }
+  if (stack.length > 1) { stack.pop(); const v = stack[stack.length - 1]; show(v, false); if (v === 'person') renderPerson(); if (v === 'home') renderHome(); return true; }
+  return false;
+};
+document.querySelectorAll('.back').forEach((b) => b.onclick = () => window.appBack());
+
+function toast(t) { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => e.classList.remove('on'), 2200); }
+function sheet(html) { $('#sheet-in').innerHTML = html; $('#sheet').classList.add('on'); }
+function closeSheet() { $('#sheet').classList.remove('on'); }
+$('#sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
+
+// ---- 글자 꼴 ----
+function pretty(d) {
+  d = String(d || '');
+  if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+  if (d.length === 10 && d.startsWith('02')) return '02-' + d.slice(2, 6) + '-' + d.slice(6);
+  if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+  return d;
+}
+const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+function when(iso) {
+  const t = new Date(iso); const h = t.getHours();
+  return `${t.getMonth() + 1}월 ${t.getDate()}일 (${DAYS[t.getDay()]}) ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')}`;
+}
+function ago(iso) {
+  if (!iso) return '아직 기록 없음';
+  const a = new Date(); a.setHours(0, 0, 0, 0); const b = new Date(iso); b.setHours(0, 0, 0, 0);
+  const d = Math.round((a - b) / 864e5);
+  return d <= 0 ? '오늘' : d === 1 ? '어제' : d < 30 ? d + '일 전' : when(iso).split(' (')[0];
+}
+function dur(s) { s = s || 0; if (!s) return ''; return (s >= 60 ? Math.floor(s / 60) + '분 ' : '') + (s % 60) + '초'; }
+const DIR = { in: '받음', out: '걸음', missed: '못 받음' };
+const chip = (a) => `<span class="chip${a === '개인' ? ' me' : ''}">${esc(a)}</span>`;
+
+// ---- 불러오기 ----
+async function load() {
+  try {
+    D = await rpc('rel_sync');
+  } catch (e) { toast(e.message); }
+  render();
+}
+function render() {
+  const v = stack[stack.length - 1];
+  if (v === 'home') renderHome();
+  if (v === 'person') renderPerson();
+}
+
+// ---- 첫 화면 ----
+function renderHome() {
+  // 해야 할 설정
+  let p = {}; try { p = JSON.parse(N.perms()); } catch (e) {}
+  let h = '';
+  if (!p.callLog || !p.phoneState || !p.notif)
+    h += `<div class="warn"><div class="grow">통화 기록·알림 권한을 켜야 통화가 쌓여요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
+  if (!p.battery) h += `<div class="warn"><div class="grow">배터리 「제한 없음」을 켜면 통화를 놓치지 않아요</div><button class="btn small" onclick="N.openBattery()">켜기</button></div>`;
+  if (!localStorage.askedContacts)
+    h += `<div class="warn" style="background:var(--accent-soft);color:var(--ink)"><div class="grow"><b>폰 연락처에 저장된 사람은 모두 제외할까요?</b><br><span style="font-size:13px">제외하면 그 사람과 통화해도 묻지 않아요. 번호는 폰 안에만 둬요. 나중에 설정에서도 할 수 있어요.</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="contactsAll()">모두 제외</button><button class="btn ghost small" onclick="localStorage.askedContacts=1;renderHome()">안 함</button></div></div>`;
+  $('#setup').innerHTML = h;
+
+  // 답 안 한 번호
+  let pend = []; try { pend = JSON.parse(N.pending()); } catch (e) {}
+  if (pend.length) {
+    $('#pending-wrap').innerHTML = `<div class="sec">기록할 사람인가요?<small>처음 보는 번호와 통화했어요. 답하면 다시 안 물어요.</small></div><div class="card">` +
+      pend.map((x) => {
+        const c = (x.calls || [])[x.calls.length - 1] || {};
+        return `<div class="row"><div class="grow"><div class="t">${esc(x.name || pretty(x.phone))}</div><div class="s">${x.name ? pretty(x.phone) + ' · ' : ''}${c.at ? when(c.at) + ' · ' + (DIR[c.dir] || '') : ''}${(x.calls || []).length > 1 ? ' · ' + x.calls.length + '번' : ''}</div></div>
+          <button class="btn small" onclick="openRegister('${esc(x.phone)}','${esc(x.name || '')}')">기록</button>
+          <button class="btn ghost small" onclick="notPerson('${esc(x.phone)}')">아님</button></div>`;
+      }).join('') + `</div>`;
+  } else $('#pending-wrap').innerHTML = '';
+
+  // 사람 목록: 최근 연락한 순
+  const last = {};
+  for (const r of D.records) if (!last[r.person_id] || r.at > last[r.person_id]) last[r.person_id] = r.at;
+  const q = $('#q').value.trim(); const qd = q.replace(/\D/g, '');
+  const list = D.people.filter((p) => !q || p.name.includes(q) || (qd.length >= 3 && p.phones.some((x) => x.includes(qd))))
+    .sort((a, b) => (last[b.id] || '').localeCompare(last[a.id] || '') || a.name.localeCompare(b.name));
+  $('#people-sub').textContent = D.people.length ? `${D.people.length}명 · 최근 연락한 순` : '';
+  $('#people').innerHTML = list.length ? list.map((p) =>
+    `<div class="row tap" onclick="openPerson('${p.id}')"><div class="grow"><div class="t">${esc(p.name)}</div><div>${p.areas.map(chip).join('')}</div></div><div class="s">${ago(last[p.id])}</div></div>`).join('')
+    : `<div class="empty">${q ? '찾는 사람이 없어요' : '아직 등록한 사람이 없어요. 처음 보는 번호와 통화하면 알림으로 물어요.'}</div>`;
+}
+$('#q').oninput = renderHome;
+$('#add-person').onclick = () => openForm(null, '', '');
+$('#go-settings').onclick = () => { renderSettings(); show('settings'); };
+
+window.contactsAll = function () { localStorage.askedContacts = 1; N.importContacts(); };
+window.notPerson = function (phone) { N.notPerson(phone); toast('제외했어요. 다시 안 물어요'); renderHome(); };
+
+// ---- 사람 한 명 ----
+window.openPerson = function (id) { cur = id; show('person'); renderPerson(); };
+function personOf(id) { return D.people.find((p) => p.id === id); }
+function renderPerson() {
+  const p = personOf(cur);
+  if (!p) { window.appBack(); return; }
+  $('#p-name').textContent = p.name;
+  $('#p-info').innerHTML = `<div>${p.areas.map(chip).join('')}</div><div class="muted" style="margin-top:6px">${p.phones.map(pretty).join(' · ') || '번호 없음'}</div>`;
+  const opts = myAreas();
+  if (!memoArea || !opts.includes(memoArea)) memoArea = p.areas.find((a) => opts.includes(a)) || '개인';
+  $('#m-area').textContent = memoArea + ' ▾';
+  $('#m-area-help').textContent = memoArea === '개인' ? '나만 봐요' : memoArea + '를 볼 수 있는 사람이 봐요';
+  const recs = D.records.filter((r) => r.person_id === cur);
+  $('#p-records').innerHTML = recs.length ? recs.map((r) => {
+    const by = r.mine ? '' : ` · ${esc(r.by)}`;
+    const act = r.mine ? `<button class="act" onclick="recMenu('${r.id}')">⋯</button>` : '';
+    if (r.kind === 'call')
+      return `<div class="rec"><div class="h"><span class="dir ${r.dir}">${DIR[r.dir] || ''}</span>${r.dur ? `<span class="muted">${dur(r.dur)}</span>` : ''}${chip(r.area)}${act}</div><div class="when muted">${when(r.at)}${by}</div></div>`;
+    return `<div class="rec"><div class="h"><span class="dir">📝 메모</span>${chip(r.area)}${act}</div><div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at)}${by}</div></div>`;
+  }).join('') : '<div class="empty">아직 기록이 없어요</div>';
+}
+function myAreas() { return (D.me.areas || []).concat(['개인']); }
+$('#p-edit').onclick = () => { const p = personOf(cur); if (p) openForm(p, '', ''); };
+$('#m-area').onclick = () => {
+  sheet(`<h3>이 메모를 누가 볼까요?</h3>` + myAreas().map((a) =>
+    `<button class="opt" onclick="setMemoArea('${a}')">${chip(a)} ${a === '개인' ? '나만' : esc(a) + '를 볼 수 있는 사람'}</button>`).join(''));
+};
+window.setMemoArea = function (a) { memoArea = a; closeSheet(); renderPerson(); };
+$('#m-save').onclick = async () => {
+  const body = $('#m-body').value.trim();
+  if (!body) { toast('메모를 적어 주세요'); return; }
+  $('#m-save').disabled = true;
+  try { await rpc('rel_add_memo', { p_person: cur, p_area: memoArea, p_body: body }); $('#m-body').value = ''; toast('저장했어요'); await load(); }
+  catch (e) { toast(e.message); }
+  $('#m-save').disabled = false;
+};
+// 내 기록: 영역 바꾸기·지우기
+window.recMenu = function (id) {
+  const r = D.records.find((x) => x.id === id); if (!r) return;
+  const p = personOf(r.person_id);
+  const areas = myAreas().filter((a) => a === '개인' || (p && p.areas.includes(a)));
+  sheet(`<h3>${r.kind === 'call' ? '이 통화' : '이 메모'}</h3><div class="muted" style="margin:0 4px 8px">영역 바꾸기</div>` +
+    areas.map((a) => `<button class="opt" onclick="setArea('${id}','${a}')">${chip(a)} ${a === r.area ? '✓' : ''}</button>`).join('') +
+    `<button class="opt" style="color:#b3261e" onclick="delRec('${id}')">지우기</button>`);
+};
+window.setArea = async function (id, a) { closeSheet(); try { await rpc('rel_set_area', { p_id: id, p_area: a }); await load(); } catch (e) { toast(e.message); } };
+window.delRec = async function (id) {
+  closeSheet();
+  if (!confirm('이 기록을 지울까요? 되돌릴 수 없어요.')) return;
+  try { await rpc('rel_delete_record', { p_id: id }); toast('지웠어요'); await load(); } catch (e) { toast(e.message); }
+};
+
+// ---- 등록·고치기 ----
+function openForm(p, phone, name) {
+  form = { id: p ? p.id : null, areas: p ? p.areas.slice() : [], fromPhone: phone || '' };
+  $('#f-title').textContent = p ? '고치기' : '사람 등록';
+  $('#f-name').value = p ? p.name : (name || '');
+  $('#f-phones').value = p ? p.phones.map(pretty).join('\n') : (phone ? pretty(phone) : '');
+  $('#f-err').textContent = '';
+  $('#f-del').style.display = p && p.mine ? 'block' : 'none';
+  // 알림에서 왔으면: 이미 있는 사람에게 이 번호를 붙일 수도
+  $('#f-attach').innerHTML = !p && phone && D.people.length
+    ? `<button class="btn ghost full small" style="margin-bottom:14px" onclick="attachPick()">이미 등록한 사람의 다른 번호예요</button>` : '';
+  renderAreas();
+  show('form');
+}
+function renderAreas() {
+  const opts = myAreas();
+  $('#f-areas').innerHTML = opts.map((a) => {
+    const i = form.areas.indexOf(a);
+    return `<button class="chip btnchip${i >= 0 ? ' sel' : ''}" onclick="toggleArea('${a}')">${i === 0 ? '① ' : ''}${esc(a)}</button>`;
+  }).join('');
+  const main = form.areas[0];
+  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '「개인」 = 교회·친구·가족, 나만 봐요. 오레진은 아직 닫혀 있어요.';
+}
+window.toggleArea = function (a) {
+  const i = form.areas.indexOf(a);
+  if (i >= 0) form.areas.splice(i, 1); else form.areas.push(a);
+  renderAreas();
+};
+// 지금 번호 → 기존 사람
+window.attachPick = function () {
+  sheet(`<h3>누구의 번호인가요?</h3>` + D.people.map((p) =>
+    `<button class="opt" onclick="attachTo('${p.id}')"><b>${esc(p.name)}</b> <span class="muted">${p.phones.map(pretty).join(' · ')}</span></button>`).join(''));
+};
+window.attachTo = async function (id) {
+  closeSheet();
+  const p = personOf(id); if (!p) return;
+  const phone = N.norm(form.fromPhone);
+  try {
+    await rpc('rel_save_person', { p_id: p.id, p_name: p.name, p_areas: p.areas, p_phones: p.phones.concat([phone]) });
+    N.answered(phone, p.id, p.name);
+    toast(p.name + '에게 번호를 붙였어요');
+    await load(); stack.length = 0; stack.push('home'); cur = p.id; show('person'); renderPerson();
+  } catch (e) { toast(e.message); }
+};
+$('#f-save').onclick = async () => {
+  const name = $('#f-name').value.trim();
+  const phones = $('#f-phones').value.split(/[\n,]+/).map((x) => N.norm(x)).filter((x) => x.length >= 7);
+  if (!name) { $('#f-err').textContent = '이름을 적어 주세요.'; return; }
+  if (!form.areas.length) { $('#f-err').textContent = '영역을 하나 이상 골라 주세요.'; return; }
+  $('#f-save').disabled = true;
+  try {
+    const r = await rpc('rel_save_person', { p_id: form.id, p_name: name, p_areas: form.areas, p_phones: phones });
+    // 답 안 한 번호였으면 모아 둔 통화를 이 사람에게
+    let pend = []; try { pend = JSON.parse(N.pending()); } catch (e) {}
+    for (const x of pend) if (phones.includes(x.phone)) N.answered(x.phone, r.id, name);
+    toast('저장했어요');
+    await load();
+    cur = r.id; stack.length = 0; stack.push('home'); show('person'); renderPerson();
+  } catch (e) { $('#f-err').textContent = e.message; }
+  $('#f-save').disabled = false;
+};
+$('#f-del').onclick = async () => {
+  if (!confirm('이 사람과 내 기록을 모두 지울까요? 되돌릴 수 없어요.')) return;
+  try { await rpc('rel_delete_person', { p_id: form.id }); toast('지웠어요'); await load(); show('home'); renderHome(); }
+  catch (e) { $('#f-err').textContent = e.message; }
+};
+
+// 알림 [기록]에서 열림
+window.openRegister = function (phone, name) {
+  if (!N.token()) { show('login'); return; }
+  const p = D.people.find((x) => x.phones.includes(phone));
+  if (p) { N.answered(phone, p.id, p.name); toast('이미 등록된 ' + p.name + '님이에요'); cur = p.id; show('person'); renderPerson(); return; }
+  stack.length = 0; stack.push('home');
+  openForm(null, phone, name);
+};
+
+// ---- 설정 ----
+function renderSettings() {
+  let x = []; try { x = JSON.parse(N.excluded()); } catch (e) {}
+  $('#x-list').innerHTML = x.length ? (x.length > 50 ? `<div class="empty">${x.length}개 (연락처에서 넣은 것 포함). 최근 것 50개만 보여요</div>` : '') +
+    x.slice(-50).map((p) => `<div class="row"><div class="grow">${pretty(p)}</div><button class="btn ghost small" onclick="unex('${p}')">빼기</button></div>`).join('')
+    : '<div class="empty">아직 없어요. 알림에서 「아님」을 누르면 여기 들어와요.</div>';
+  $('#s-me').textContent = D.me.name || '';
+  $('#s-ver').textContent = '버전 ' + N.version();
+}
+window.unex = function (p) { N.unexclude(p); renderSettings(); };
+$('#x-go').onclick = () => { const v = $('#x-add').value; if (N.norm(v).length < 7) { toast('번호를 적어 주세요'); return; } N.exclude(v); $('#x-add').value = ''; renderSettings(); toast('제외했어요'); };
+$('#x-contacts').onclick = () => N.importContacts();
+$('#s-out').onclick = async () => {
+  if (!confirm('이 폰에서 나갈까요? 나가 있는 동안 통화가 쌓이지 않아요.')) return;
+  try { await rpc('rel_logout'); } catch (e) {}
+  N.setToken(''); show('login');
+};
+
+// ---- 로그인 ----
+$('#l-go').onclick = async () => {
+  const id = $('#l-id').value.trim(), pw = $('#l-pw').value;
+  if (!id || !pw) { $('#l-err').textContent = '아이디와 비밀번호를 적어 주세요.'; return; }
+  $('#l-go').disabled = true; $('#l-err').textContent = '';
+  const r = await call('rel_login', { p_id: id, p_pw: pw });
+  $('#l-go').disabled = false;
+  if (r.status === 0) { $('#l-err').textContent = '인터넷이 안 돼요.'; return; }
+  if (!r.data || r.data.error || !r.data.token) { $('#l-err').textContent = (r.data && r.data.error) || '들어가지 못했어요.'; return; }
+  $('#l-pw').value = '';
+  N.setToken(r.data.token);
+  show('home'); load();
+};
+
+// ---- 폰에서 오는 소식 ----
+window.onNative = function (what, a, b) {
+  if (what === 'contacts') {
+    if (a < 0) toast('연락처 권한이 없어 넣지 못했어요');
+    else toast(`연락처 번호 ${b}개를 제외에 넣었어요`);
+    if (stack[stack.length - 1] === 'settings') renderSettings(); else renderHome();
+    return;
+  }
+  if (!N.token()) { if (stack[0] !== 'login') show('login'); return; }
+  if (what === 'synced' || what === 'resume') load();
+  else render();
+};
+
+// 시작
+if (N.token()) { show('home'); renderHome(); load(); } else show('login');
+</script>
+</body>
+</html>

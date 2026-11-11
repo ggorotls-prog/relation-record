@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 관계 기록 포인트 색(테라코타, 2026-11-11 룡 결정) -->
+    <color name="brand">#A35A3C</color>
+</resources>
