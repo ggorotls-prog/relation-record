@@ -64,6 +64,12 @@ textarea{resize:none;min-height:72px}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1f1f1d;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
 .toast.on{opacity:.92}
 .search{margin:4px 0 4px}
+/* 아래로 당기면 새로고침 */
+#ptr{position:fixed;top:0;left:50%;transform:translate(-50%,-48px);width:36px;height:36px;border-radius:999px;background:var(--card);border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:18px;opacity:0;z-index:15;pointer-events:none}
+#ptr.ready{color:var(--accent)}
+#ptr.spin{transform:translate(-50%,16px)!important;opacity:1!important;transition:transform .15s}
+#ptr.spin span{animation:rot .8s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -131,6 +137,7 @@ textarea{resize:none;min-height:72px}
 
 <div class="sheet-bg" id="sheet"><div class="sheet" id="sheet-in"></div></div>
 <div class="toast" id="toast"></div>
+<div id="ptr"><span>↻</span></div>
 
 <script>
 'use strict';
@@ -219,7 +226,32 @@ async function load() {
     D = await rpc('rel_sync');
   } catch (e) { toast(e.message); }
   render();
+  hidePtr();
 }
+
+// ---- 아래로 당기면 새로고침(첫 화면·사람 화면, 맨 위에서만) ----
+function hidePtr() { const e = $('#ptr'); e.classList.remove('spin', 'ready'); e.style.transform = ''; e.style.opacity = ''; }
+(function () {
+  let y0 = null, d = 0; const el = $('#ptr');
+  const can = () => { const v = stack[stack.length - 1]; return (v === 'home' || v === 'person') && !$('#sheet').classList.contains('on') && window.scrollY <= 0; };
+  addEventListener('touchstart', (e) => { y0 = can() ? e.touches[0].clientY : null; d = 0; }, { passive: true });
+  addEventListener('touchmove', (e) => {
+    if (y0 === null) return;
+    if (window.scrollY > 0) { y0 = null; hidePtr(); return; }
+    d = Math.max(0, e.touches[0].clientY - y0);
+    el.style.transform = `translate(-50%,${Math.min(d, 140) / 2 - 40}px)`;
+    el.style.opacity = Math.min(1, d / 80);
+    el.classList.toggle('ready', d > 80);
+  }, { passive: true });
+  addEventListener('touchend', () => {
+    if (y0 === null) return;
+    const go = d > 80; y0 = null;
+    if (!go) { hidePtr(); return; }
+    el.classList.add('spin');
+    N.syncNow();               // 폰 통화 기록 다시 읽고 보낸 뒤 onNative('synced') → load()
+    setTimeout(hidePtr, 12000); // 인터넷이 안 될 때도 멈추지 않게
+  });
+})();
 function render() {
   const v = stack[stack.length - 1];
   if (v === 'home') renderHome();
