@@ -90,6 +90,7 @@ textarea{resize:none;min-height:72px}
   <div id="setup"></div>
   <div id="pending-wrap"></div>
   <div class="sec">사람<small id="people-sub"></small></div>
+  <div id="tabs" style="display:flex;gap:6px;overflow-x:auto;margin:0 0 10px;padding-bottom:2px"></div>
   <input class="search" id="q" placeholder="이름이나 번호로 찾기" inputmode="search">
   <div class="card" id="people" style="margin-top:10px"></div>
   <button class="fab" id="add-person">+ 사람</button>
@@ -115,7 +116,7 @@ textarea{resize:none;min-height:72px}
 <div class="view" id="v-form">
   <div class="top"><button class="icon back">←</button><h2 id="f-title">사람 등록</h2></div>
   <div id="f-attach"></div>
-  <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="예: 김민수 (오레진 고객)"></div>
+  <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="폰 연락처 이름 그대로"></div>
   <div class="field"><label>번호</label><textarea id="f-phones" style="min-height:52px" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
   <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 여러 개 고를 수 있어요. 맨 처음 고른 것에 통화가 들어가요</span></label><div id="f-areas"></div>
     <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
@@ -263,8 +264,8 @@ function renderHome() {
   // 해야 할 설정
   let p = {}; try { p = JSON.parse(N.perms()); } catch (e) {}
   let h = '';
-  if (!p.callLog || !p.phoneState || !p.notif)
-    h += `<div class="warn"><div class="grow">통화 기록·알림 권한을 켜야 통화가 쌓여요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
+  if (!p.callLog || !p.phoneState || !p.notif || !p.contacts)
+    h += `<div class="warn"><div class="grow">통화 기록·연락처·알림 권한을 켜 주세요. 통화가 쌓이고, 이름은 폰 연락처 이름 그대로 들어가요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
   if (!p.battery) h += `<div class="warn"><div class="grow">배터리 「제한 없음」을 켜면 통화를 놓치지 않아요</div><button class="btn small" onclick="N.openBattery()">켜기</button></div>`;
   $('#setup').innerHTML = h;
 
@@ -280,17 +281,29 @@ function renderHome() {
       }).join('') + `</div>`;
   } else $('#pending-wrap').innerHTML = '';
 
-  // 사람 목록: 최근 연락한 순
+  // 영역 탭: 전체 + 사람이 있는 영역만(업무 기록 영역 순서, 개인은 맨 끝). 여러 영역인 사람은 탭마다 보인다
+  const order = (D.me.areas || []).concat(['개인']);
+  const has = order.filter((a) => D.people.some((p) => p.areas.includes(a)));
+  if (tab !== '전체' && !has.includes(tab)) tab = '전체';
+  $('#tabs').innerHTML = D.people.length ? ['전체'].concat(has).map((a) =>
+    `<button class="chip btnchip${a === tab ? ' sel' : ''}" style="margin:0;flex:0 0 auto" onclick="setTab('${a}')">${esc(a)}</button>`).join('') : '';
+
+  // 사람 목록: 최근 연락한 순(영역 탭이면 그 영역에서 마지막으로 연락한 날)
   const last = {};
-  for (const r of D.records) if (!last[r.person_id] || r.at > last[r.person_id]) last[r.person_id] = r.at;
+  for (const r of D.records) if ((tab === '전체' || r.area === tab) && (!last[r.person_id] || r.at > last[r.person_id])) last[r.person_id] = r.at;
   const q = $('#q').value.trim(); const qd = q.replace(/\D/g, '');
-  const list = D.people.filter((p) => !q || p.name.includes(q) || (qd.length >= 3 && p.phones.some((x) => x.includes(qd))))
+  const list = D.people.filter((p) => tab === '전체' || p.areas.includes(tab))
+    .filter((p) => !q || p.name.includes(q) || (qd.length >= 3 && p.phones.some((x) => x.includes(qd))))
     .sort((a, b) => (last[b.id] || '').localeCompare(last[a.id] || '') || a.name.localeCompare(b.name));
-  $('#people-sub').textContent = D.people.length ? `${D.people.length}명 · 최근 연락한 순` : '';
-  $('#people').innerHTML = list.length ? list.map((p) =>
-    `<div class="row tap" onclick="openPerson('${p.id}')"><div class="grow"><div class="t">${esc(p.name)}</div><div>${p.areas.map(chip).join('')}</div></div><div class="s">${ago(last[p.id])}</div></div>`).join('')
+  $('#people-sub').textContent = list.length ? `${list.length}명 · 최근 연락한 순` : '';
+  $('#people').innerHTML = list.length ? list.map((p) => {
+    const noName = /^[0-9 -]+$/.test(p.name);
+    return `<div class="row tap" onclick="openPerson('${p.id}')"><div class="grow"><div class="t">${esc(p.name)}</div>${noName ? '<div class="s" style="color:var(--accent)">이름을 달아 주세요 (고치기)</div>' : ''}<div>${p.areas.map(chip).join('')}</div></div><div class="s">${ago(last[p.id])}</div></div>`;
+  }).join('')
     : `<div class="empty">${q ? '찾는 사람이 없어요' : '아직 등록한 사람이 없어요. 처음 보는 번호와 통화하면 알림으로 물어요.'}</div>`;
 }
+let tab = '전체';
+window.setTab = function (a) { tab = a; renderHome(); };
 $('#q').oninput = renderHome;
 $('#add-person').onclick = () => openForm(null, '', '');
 $('#go-settings').onclick = () => { renderSettings(); show('settings'); };
@@ -394,9 +407,14 @@ window.attachTo = async function (id) {
   } catch (e) { toast(e.message); }
 };
 $('#f-save').onclick = async () => {
-  const name = $('#f-name').value.trim();
+  let name = $('#f-name').value.trim();
   const phones = $('#f-phones').value.split(/[\n,]+/).map((x) => N.norm(x)).filter((x) => x.length >= 7);
-  if (!name) { $('#f-err').textContent = '이름을 적어 주세요.'; return; }
+  // 이름은 폰 연락처 이름 그대로. 연락처에 없으면 번호로 저장해도 되지만, 이름을 달도록 한 번 묻는다(2026-11-11 룡)
+  if (!name) {
+    if (!phones.length) { $('#f-err').textContent = '이름이나 번호를 적어 주세요.'; return; }
+    if (!confirm('이름 없이 번호로 저장할까요?\n찾기 쉽게 이름을 달아 두는 게 좋아요. 나중에 「고치기」에서 달 수 있어요.')) { $('#f-name').focus(); return; }
+    name = pretty(phones[0]);
+  }
   if (!form.areas.length) { $('#f-err').textContent = '영역을 하나 이상 골라 주세요.'; return; }
   $('#f-save').disabled = true;
   try {

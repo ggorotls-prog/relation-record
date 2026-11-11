@@ -261,6 +261,7 @@ public class MainActivity extends Activity {
                 List<String> need = new ArrayList<>();
                 need.add(Manifest.permission.READ_CALL_LOG);
                 need.add(Manifest.permission.READ_PHONE_STATE);
+                need.add(Manifest.permission.READ_CONTACTS); // 알림·등록 칸에 폰 연락처 이름을 그대로 쓰려고(번호는 폰 밖으로 안 나감)
                 if (android.os.Build.VERSION.SDK_INT >= 33) need.add("android.permission.POST_NOTIFICATIONS");
                 requestPermissions(need.toArray(new String[0]), 1);
             });
