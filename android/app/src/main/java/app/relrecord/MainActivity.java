@@ -44,7 +44,6 @@ public class MainActivity extends Activity {
 
         web = new WebView(this);
         web.setBackgroundColor(bg);
-        web.setFitsSystemWindows(true);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -71,7 +70,23 @@ public class MainActivity extends Activity {
             }
         });
         web.loadUrl("file:///android_asset/index.html");
-        setContentView(web);
+        // 상태 표시줄(시계)·아래 버튼줄·키보드에 화면이 가리지 않게(업무 기록 앱과 같은 방식).
+        // 안드로이드 15는 화면을 끝까지 그리므로 그만큼 안쪽으로 띄운다.
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.setBackgroundColor(bg);
+        root.addView(web);
+        setContentView(root);
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+            root.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(android.view.WindowInsets.Type.systemBars());
+                android.graphics.Insets ime = insets.getInsets(android.view.WindowInsets.Type.ime());
+                v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+                return android.view.WindowInsets.CONSUMED;
+            });
+        } else {
+            root.setFitsSystemWindows(true);
+        }
         take(getIntent());
         CallJob.schedulePeriodic(this);
     }
