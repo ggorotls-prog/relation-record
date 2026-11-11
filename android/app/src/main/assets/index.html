@@ -222,7 +222,9 @@ const DIR = { in: '받음', out: '걸음', missed: '못 받음' };
 const chip = (a) => `<span class="chip${a === '개인' ? ' me' : ''}">${esc(a)}</span>`;
 
 // ---- 불러오기 ----
+let recentList = null, recentMore = false; // 지난 통화 목록(폰 통화 기록에서, 불러올 때마다 새로)
 async function load() {
+  recentList = null;
   try {
     D = await rpc('rel_sync');
   } catch (e) { toast(e.message); }
@@ -281,6 +283,18 @@ function renderHome() {
       }).join('') + `</div>`;
   } else $('#pending-wrap').innerHTML = '';
 
+  // 지난 30일 통화(연락처 사람 포함) 중 아직 안 정한 번호: 하나씩 [기록] [아님]
+  if (recentList === null) { try { recentList = JSON.parse(N.recent()); } catch (e) { recentList = []; } }
+  const rl = recentList.filter((x) => !pend.some((y) => y.phone === x.phone));
+  if (rl.length) {
+    const shown = recentMore ? rl : rl.slice(0, 15);
+    $('#pending-wrap').innerHTML += `<div class="sec">지난 30일 통화 · ${rl.length}명<small>아직 정하지 않은 번호예요. 기록할 사람만 [기록], 아니면 [아님].</small></div><div class="card">` +
+      shown.map((x) => `<div class="row"><div class="grow"><div class="t">${esc(x.name || pretty(x.phone))}</div><div class="s">${x.name ? pretty(x.phone) + ' · ' : ''}${ago(x.last)} · ${x.count}번</div></div>
+          <button class="btn small" onclick="openRegister('${esc(x.phone)}','${esc(x.name || '')}')">기록</button>
+          <button class="btn ghost small" onclick="notPerson('${esc(x.phone)}')">아님</button></div>`).join('') +
+      (rl.length > shown.length ? `<div class="row tap" style="justify-content:center;color:var(--accent);font-weight:600" onclick="recentMore=true;renderHome()">${rl.length - shown.length}명 더 보기</div>` : '') + `</div>`;
+  }
+
   // 영역 탭: 전체 + 사람이 있는 영역만(업무 기록 영역 순서, 개인은 맨 끝). 여러 영역인 사람은 탭마다 보인다
   const order = (D.me.areas || []).concat(['개인']);
   const has = order.filter((a) => D.people.some((p) => p.areas.includes(a)));
@@ -308,7 +322,7 @@ $('#q').oninput = renderHome;
 $('#add-person').onclick = () => openForm(null, '', '');
 $('#go-settings').onclick = () => { renderSettings(); show('settings'); };
 
-window.notPerson = function (phone) { N.notPerson(phone); toast('제외했어요. 다시 안 물어요'); renderHome(); };
+window.notPerson = function (phone) { N.notPerson(phone); recentList = null; toast('제외했어요. 다시 안 물어요'); renderHome(); };
 
 // ---- 사람 한 명 ----
 window.openPerson = function (id) { cur = id; show('person'); renderPerson(); };
@@ -419,11 +433,11 @@ $('#f-save').onclick = async () => {
   $('#f-save').disabled = true;
   try {
     const r = await rpc('rel_save_person', { p_id: form.id, p_name: name, p_areas: form.areas, p_phones: phones });
-    // 답 안 한 번호였으면 모아 둔 통화를 이 사람에게
-    let pend = []; try { pend = JSON.parse(N.pending()); } catch (e) {}
-    for (const x of pend) if (phones.includes(x.phone)) N.answered(x.phone, r.id, name);
+    // 모아 둔 통화와 지난 30일 통화를 이 사람 기록으로(같은 통화는 서버가 한 번만 받는다)
+    for (const ph of phones) N.answered(ph, r.id, name);
     toast('저장했어요');
     await load();
+    setTimeout(() => N.syncNow(), 1500); // 지난 통화를 보낸 뒤 다시 받아 화면에
     cur = r.id; stack.length = 0; stack.push('home'); show('person'); renderPerson();
   } catch (e) { $('#f-err').textContent = e.message; }
   $('#f-save').disabled = false;
