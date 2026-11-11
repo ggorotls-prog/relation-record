@@ -151,6 +151,39 @@ public class MainActivity extends Activity {
         });
     }
 
+    // 연락처에서 고름(10) / 새 연락처를 만듦(11): 고른 연락처의 이름·번호를 등록 칸으로
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (result != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        new Thread(() -> {
+            String name = "", number = "";
+            try {
+                if (code == 10) {
+                    try (android.database.Cursor c = getContentResolver().query(uri, new String[]{
+                            android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER}, null, null, null)) {
+                        if (c != null && c.moveToFirst()) { name = c.getString(0); number = c.getString(1); }
+                    }
+                } else if (code == 11) {
+                    long id = -1;
+                    try (android.database.Cursor c = getContentResolver().query(uri, new String[]{
+                            android.provider.ContactsContract.Contacts._ID, android.provider.ContactsContract.Contacts.DISPLAY_NAME}, null, null, null)) {
+                        if (c != null && c.moveToFirst()) { id = c.getLong(0); name = c.getString(1); }
+                    }
+                    if (id >= 0) try (android.database.Cursor c = getContentResolver().query(
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            new String[]{android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER},
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID + "=?", new String[]{String.valueOf(id)}, null)) {
+                        if (c != null && c.moveToFirst()) number = c.getString(0);
+                    }
+                }
+            } catch (Exception ignored) {}
+            js("window.onNative && onNative('contact'," + JSONObject.quote(name == null ? "" : name) + "," + JSONObject.quote(number == null ? "" : number) + ")");
+        }).start();
+    }
+
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
         super.onRequestPermissionsResult(code, perms, res);
@@ -297,6 +330,28 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void close() { runOnUiThread(MainActivity.this::finish); }
+
+        // 폰 연락처에서 한 사람 고르기(폰 기본 고르기 화면)
+        @JavascriptInterface public void pickContact() {
+            runOnUiThread(() -> {
+                try {
+                    startActivityForResult(new Intent(Intent.ACTION_PICK, android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI), 10);
+                } catch (Exception e) { js("toast('연락처를 열 수 없어요')"); }
+            });
+        }
+
+        // 새 연락처 만들기: 폰 연락처 앱이 열리고(적어 둔 이름·번호가 채워짐), 저장하면 그 이름·번호가 등록 칸으로
+        @JavascriptInterface public void newContact(String name, String phone) {
+            runOnUiThread(() -> {
+                try {
+                    Intent i = new Intent(Intent.ACTION_INSERT, android.provider.ContactsContract.Contacts.CONTENT_URI)
+                            .putExtra(android.provider.ContactsContract.Intents.Insert.NAME, name == null ? "" : name)
+                            .putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, phone == null ? "" : phone)
+                            .putExtra("finishActivityOnSaveCompleted", true);
+                    startActivityForResult(i, 11);
+                } catch (Exception e) { js("toast('연락처 앱을 열 수 없어요')"); }
+            });
+        }
     }
 
     private void open(Intent i) {

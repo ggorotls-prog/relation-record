@@ -383,8 +383,12 @@ function openForm(p, phone, name) {
   $('#f-err').textContent = '';
   $('#f-del').style.display = p && p.mine ? 'block' : 'none';
   // 알림에서 왔으면: 이미 있는 사람에게 이 번호를 붙일 수도
-  $('#f-attach').innerHTML = !p && phone && D.people.length
-    ? `<button class="btn ghost full small" style="margin-bottom:14px" onclick="attachPick()">이미 등록한 사람의 다른 번호예요</button>` : '';
+  $('#f-attach').innerHTML = (!p && phone && D.people.length
+    ? `<button class="btn ghost full small" style="margin-bottom:10px" onclick="attachPick()">이미 등록한 사람의 다른 번호예요</button>` : '')
+    // 「+ 사람」으로 직접 넣을 때: 폰 연락처에서 고르거나, 새 연락처로 만들어(폰 연락처에도 저장) 이름·번호를 채운다
+    + (!p && !phone && N.pickContact ? `<div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn ghost small" style="flex:1" onclick="N.pickContact()">📇 연락처에서 고르기</button>
+        <button class="btn ghost small" style="flex:1" onclick="N.newContact($('#f-name').value, $('#f-phones').value.split('\\n')[0] || '')">＋ 새 연락처 만들기</button></div>` : '');
   renderAreas();
   show('form');
 }
@@ -488,6 +492,15 @@ $('#l-go').onclick = async () => {
 
 // ---- 폰에서 오는 소식 ----
 window.onNative = function (what, a, b) {
+  // 연락처에서 고름 / 새 연락처를 만듦 → 등록 칸에 이름·번호(이름은 연락처 이름 그대로)
+  if (what === 'contact') {
+    if (a) $('#f-name').value = a;
+    if (b) {
+      const ph = N.norm(b), cur = $('#f-phones').value.split(/[\n,]+/).map((x) => N.norm(x)).filter((x) => x.length >= 7);
+      if (ph.length >= 7 && !cur.includes(ph)) $('#f-phones').value = cur.concat([ph]).map(pretty).join('\n');
+    }
+    return;
+  }
   if (what === 'contacts') {
     if (a < 0) toast('연락처 권한이 없어 넣지 못했어요');
     else toast(`연락처 번호 ${b}개를 제외에 넣었어요`);
