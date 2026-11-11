@@ -187,7 +187,7 @@ function show(v, push) {
 }
 // 뒤로 가기: 열린 창 → 직전 화면 → 첫 화면에서만 앱 닫힘(false)
 window.appBack = function () {
-  if ($('#sheet').classList.contains('on')) { closeSheet(); return true; }
+  if ($('#sheet').classList.contains('on')) { if (askDone) askDone(false); else closeSheet(); return true; }
   if (stack.length > 1) { stack.pop(); const v = stack[stack.length - 1]; show(v, false); if (v === 'person') renderPerson(); if (v === 'home') renderHome(); return true; }
   return false;
 };
@@ -196,7 +196,17 @@ document.querySelectorAll('.back').forEach((b) => b.onclick = () => window.appBa
 function toast(t) { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => e.classList.remove('on'), 2200); }
 function sheet(html) { $('#sheet-in').innerHTML = html; $('#sheet').classList.add('on'); }
 function closeSheet() { $('#sheet').classList.remove('on'); }
-$('#sheet').onclick = (e) => { if (e.target.id === 'sheet') closeSheet(); };
+$('#sheet').onclick = (e) => { if (e.target.id === 'sheet') { if (askDone) askDone(false); else closeSheet(); } };
+// 확인 창: 앱 안(WebView)에서는 confirm()이 안 떠서(눌러도 아무 일 없음) 화면 안 창으로 묻는다. 예 → true
+let askDone = null;
+function ask(title, note, yes) {
+  if (askDone) askDone(false);
+  return new Promise((res) => {
+    askDone = (v) => { askDone = null; closeSheet(); res(v); };
+    sheet(`<h3>${esc(title)}</h3>${note ? `<div class="muted" style="margin:0 4px 16px">${esc(note)}</div>` : ''}
+      <div style="display:flex;gap:8px"><button class="btn ghost" style="flex:1" onclick="askDone(false)">아니요</button><button class="btn" style="flex:2" onclick="askDone(true)">${esc(yes || '네')}</button></div>`);
+  });
+}
 
 // ---- 글자 꼴 ----
 function pretty(d) {
@@ -360,7 +370,7 @@ window.recMenu = function (id) {
 window.setArea = async function (id, a) { closeSheet(); try { await rpc('rel_set_area', { p_id: id, p_area: a }); await load(); } catch (e) { toast(e.message); } };
 window.delRec = async function (id) {
   closeSheet();
-  if (!confirm('이 기록을 지울까요? 되돌릴 수 없어요.')) return;
+  if (!(await ask('이 기록을 지울까요?', '되돌릴 수 없어요.', '지우기'))) return;
   try { await rpc('rel_delete_record', { p_id: id }); toast('지웠어요'); await load(); } catch (e) { toast(e.message); }
 };
 
@@ -414,7 +424,7 @@ $('#f-save').onclick = async () => {
   // 이름은 폰 연락처 이름 그대로. 연락처에 없으면 번호로 저장해도 되지만, 이름을 달도록 한 번 묻는다(2026-11-11 룡)
   if (!name) {
     if (!phones.length) { $('#f-err').textContent = '이름이나 번호를 적어 주세요.'; return; }
-    if (!confirm('이름 없이 번호로 저장할까요?\n찾기 쉽게 이름을 달아 두는 게 좋아요. 나중에 「고치기」에서 달 수 있어요.')) { $('#f-name').focus(); return; }
+    if (!(await ask('이름 없이 번호로 저장할까요?', '찾기 쉽게 이름을 달아 두는 게 좋아요. 나중에 「고치기」에서 달 수 있어요.', '번호로 저장'))) { $('#f-name').focus(); return; }
     name = pretty(phones[0]);
   }
   if (!form.areas.length) { $('#f-err').textContent = '영역을 하나 이상 골라 주세요.'; return; }
@@ -431,7 +441,7 @@ $('#f-save').onclick = async () => {
   $('#f-save').disabled = false;
 };
 $('#f-del').onclick = async () => {
-  if (!confirm('이 사람과 내 기록을 모두 지울까요? 되돌릴 수 없어요.')) return;
+  if (!(await ask('이 사람과 내 기록을 모두 지울까요?', '되돌릴 수 없어요.', '지우기'))) return;
   try { await rpc('rel_delete_person', { p_id: form.id }); toast('지웠어요'); await load(); show('home'); renderHome(); }
   catch (e) { $('#f-err').textContent = e.message; }
 };
@@ -457,7 +467,7 @@ function renderSettings() {
 window.unex = function (p) { N.unexclude(p); renderSettings(); };
 $('#x-go').onclick = () => { const v = $('#x-add').value; if (N.norm(v).length < 7) { toast('번호를 적어 주세요'); return; } N.exclude(v); $('#x-add').value = ''; renderSettings(); toast('제외했어요'); };
 $('#s-out').onclick = async () => {
-  if (!confirm('이 폰에서 나갈까요? 나가 있는 동안 통화가 쌓이지 않아요.')) return;
+  if (!(await ask('이 폰에서 나갈까요?', '나가 있는 동안 통화가 쌓이지 않아요.', '나가기'))) return;
   try { await rpc('rel_logout'); } catch (e) {}
   N.setToken(''); show('login');
 };
