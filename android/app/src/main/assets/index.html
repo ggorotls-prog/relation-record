@@ -121,9 +121,8 @@ textarea{resize:none;min-height:72px}
 <!-- 설정 -->
 <div class="view" id="v-settings">
   <div class="top"><button class="icon back">←</button><h2>설정</h2></div>
-  <div class="sec">제외 번호<small>여기 있는 번호와 통화하면 묻지도 기록하지도 않아요. 폰 안에만 있어요.</small></div>
+  <div class="sec">제외 번호<small>여기 있는 번호와 통화하면 묻지도 기록하지도 않아요. 알림에서 「아님」을 누르거나 여기서 번호를 더해요. 폰 안에만 있어요.</small></div>
   <div style="display:flex;gap:8px;margin-bottom:10px"><input id="x-add" inputmode="tel" placeholder="번호 더하기"><button class="btn small" id="x-go">더하기</button></div>
-  <button class="btn ghost full small" id="x-contacts" style="margin-bottom:10px">폰 연락처 번호를 모두 제외에 넣기</button>
   <div class="card" id="x-list"></div>
   <div class="sec">계정</div>
   <div class="card"><div class="row"><div class="grow"><div class="t" id="s-me"></div><div class="s">업무 기록에서 볼 수 있는 영역이 여기서도 보여요</div></div><button class="btn ghost small" id="s-out">나가기</button></div></div>
@@ -235,8 +234,6 @@ function renderHome() {
   if (!p.callLog || !p.phoneState || !p.notif)
     h += `<div class="warn"><div class="grow">통화 기록·알림 권한을 켜야 통화가 쌓여요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
   if (!p.battery) h += `<div class="warn"><div class="grow">배터리 「제한 없음」을 켜면 통화를 놓치지 않아요</div><button class="btn small" onclick="N.openBattery()">켜기</button></div>`;
-  if (!localStorage.askedContacts)
-    h += `<div class="warn" style="background:var(--accent-soft);color:var(--ink)"><div class="grow"><b>폰 연락처에 저장된 사람은 모두 제외할까요?</b><br><span style="font-size:13px">제외하면 그 사람과 통화해도 묻지 않아요. 번호는 폰 안에만 둬요. 나중에 설정에서도 할 수 있어요.</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="contactsAll()">모두 제외</button><button class="btn ghost small" onclick="localStorage.askedContacts=1;renderHome()">안 함</button></div></div>`;
   $('#setup').innerHTML = h;
 
   // 답 안 한 번호
@@ -266,7 +263,6 @@ $('#q').oninput = renderHome;
 $('#add-person').onclick = () => openForm(null, '', '');
 $('#go-settings').onclick = () => { renderSettings(); show('settings'); };
 
-window.contactsAll = function () { localStorage.askedContacts = 1; N.importContacts(); };
 window.notPerson = function (phone) { N.notPerson(phone); toast('제외했어요. 다시 안 물어요'); renderHome(); };
 
 // ---- 사람 한 명 ----
@@ -408,7 +404,6 @@ function renderSettings() {
 }
 window.unex = function (p) { N.unexclude(p); renderSettings(); };
 $('#x-go').onclick = () => { const v = $('#x-add').value; if (N.norm(v).length < 7) { toast('번호를 적어 주세요'); return; } N.exclude(v); $('#x-add').value = ''; renderSettings(); toast('제외했어요'); };
-$('#x-contacts').onclick = () => N.importContacts();
 $('#s-out').onclick = async () => {
   if (!confirm('이 폰에서 나갈까요? 나가 있는 동안 통화가 쌓이지 않아요.')) return;
   try { await rpc('rel_logout'); } catch (e) {}
