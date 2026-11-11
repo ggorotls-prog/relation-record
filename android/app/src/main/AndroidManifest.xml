@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 통화가 끝나면 화면 아래 작은 창으로 묻기(다른 앱 위에 표시) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- 스스로 업데이트(업무 기록 앱과 같은 방식) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
@@ -34,6 +36,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 통화 끝나면 뜨는 작은 창: 이름·영역 고르고 바로 저장 -->
+        <activity
+            android:name=".AskActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar"
+            android:taskAffinity="app.relrecord.ask"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- 통화가 끝나면 통화 기록 읽기 예약 -->
         <receiver android:name=".CallReceiver" android:exported="true">

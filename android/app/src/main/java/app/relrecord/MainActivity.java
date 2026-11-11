@@ -223,6 +223,13 @@ public class MainActivity extends Activity {
             new Thread(() -> { Calls.send(app); js("window.onNative && onNative('synced')"); }).start();
         }
 
+        @JavascriptInterface public void setAreas(String json) { Store.get(MainActivity.this).setAreas(json); }
+
+        // 「다른 앱 위에 표시」: 통화 끝나면 작은 창으로 묻기
+        @JavascriptInterface public void openOverlay() {
+            open(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+        }
+
         @JavascriptInterface public void notPerson(String phone) { Calls.notPerson(getApplicationContext(), Calls.norm(phone)); }
 
         @JavascriptInterface public String excluded() {
@@ -249,6 +256,7 @@ public class MainActivity extends Activity {
                         .put("phoneState", granted(Manifest.permission.READ_PHONE_STATE))
                         .put("notif", android.os.Build.VERSION.SDK_INT < 33 || granted("android.permission.POST_NOTIFICATIONS"))
                         .put("contacts", granted(Manifest.permission.READ_CONTACTS))
+                        .put("overlay", Settings.canDrawOverlays(MainActivity.this))
                         .put("battery", pm == null || pm.isIgnoringBatteryOptimizations(getPackageName()))
                         .toString();
             } catch (Exception e) {

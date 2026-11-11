@@ -225,6 +225,7 @@ const chip = (a) => `<span class="chip${a === '개인' ? ' me' : ''}">${esc(a)}<
 async function load() {
   try {
     D = await rpc('rel_sync');
+    if (N.setAreas) N.setAreas(JSON.stringify(D.me.areas || [])); // 통화 끝 작은 창에서 영역 고르기용
   } catch (e) { toast(e.message); }
   render();
   hidePtr();
@@ -266,6 +267,7 @@ function renderHome() {
   let h = '';
   if (!p.callLog || !p.phoneState || !p.notif || !p.contacts)
     h += `<div class="warn"><div class="grow">통화 기록·연락처·알림 권한을 켜 주세요. 통화가 쌓이고, 이름은 폰 연락처 이름 그대로 들어가요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
+  if (p.overlay === false) h += `<div class="warn"><div class="grow">통화가 끝나면 작은 창으로 바로 묻게, 「다른 앱 위에 표시」를 켜 주세요.</div><button class="btn small" onclick="N.openOverlay()">켜기</button></div>`;
   if (!p.battery) h += `<div class="warn"><div class="grow">배터리 「제한 없음」을 켜면 통화를 놓치지 않아요</div><button class="btn small" onclick="N.openBattery()">켜기</button></div>`;
   $('#setup').innerHTML = h;
 

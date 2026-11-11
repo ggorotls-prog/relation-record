@@ -112,6 +112,10 @@ final class Store {
         p.edit().putString("outbox", keep.toString()).apply();
     }
 
+    // 내가 고를 수 있는 일 영역(서버 rel_sync의 me.areas, 화면이 받아 둔다). 작은 창에서 쓴다
+    String areas() { return p.getString("areas", "[]"); }
+    void setAreas(String json) { p.edit().putString("areas", json == null ? "[]" : json).apply(); }
+
     long lastSent() { return p.getLong("lastSent", 0); }
     void setLastSent(long t) { p.edit().putLong("lastSent", t).apply(); }
 

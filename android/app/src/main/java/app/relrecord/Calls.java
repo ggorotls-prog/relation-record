@@ -72,6 +72,8 @@ final class Calls {
         JSONObject people = st.people();
         Set<String> excluded = st.excluded();
         long newest = last;
+        String popPhone = null, popName = null;
+        JSONObject popCall = null;
         String[] cols = {CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION};
         try (Cursor cur = c.getContentResolver().query(CallLog.Calls.CONTENT_URI, cols,
                 CallLog.Calls.DATE + " > ?", new String[]{String.valueOf(last)}, CallLog.Calls.DATE + " ASC")) {
@@ -97,12 +99,15 @@ final class Calls {
                     String name = contactName(c, phone);
                     st.addPending(phone, name, call);
                     ask(c, phone, name, call, false);
+                    popPhone = phone; popName = name; popCall = call; // 팝업은 마지막 한 통만
                 }
             }
         } catch (Exception ignored) {
             // 권한이 막혔거나 통화 기록을 못 읽으면 다음 번에
         }
         if (newest > last) st.setLastTs(newest);
+        // 통화가 끝났을 때 화면 아래 작은 창으로 바로 묻는다(「다른 앱 위에 표시」를 켰을 때만). 알림은 그대로 남는다
+        if (popPhone != null && android.provider.Settings.canDrawOverlays(c)) AskActivity.open(c, popPhone, popName, popCall);
     }
 
     // 보낼 통화를 서버로. 다 보냈거나 보낼 게 없으면 true
@@ -156,9 +161,11 @@ final class Calls {
         // 지워진 알림을 다시 띄울 때는 소리·진동 없는 채널로
         nm.createNotificationChannel(new NotificationChannel(CH_QUIET, "기록할 사람인가요? (다시 알림)", NotificationManager.IMPORTANCE_LOW));
         int id = notifId(phone);
-        Intent rec = new Intent(c, MainActivity.class).setAction(MainActivity.ACTION_REGISTER)
+        // [기록]·알림 누르기 = 작은 창(이름·영역 고르고 바로 저장)
+        Intent rec = new Intent(c, AskActivity.class)
                 .putExtra("phone", phone).putExtra("name", name == null ? "" : name)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                .putExtra("call", call == null ? "" : call.toString())
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pRec = PendingIntent.getActivity(c, id, rec, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Intent no = new Intent(c, AskReceiver.class).setAction(AskReceiver.NOT_PERSON).putExtra("phone", phone);
         PendingIntent pNo = PendingIntent.getBroadcast(c, id, no, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -229,7 +236,7 @@ final class Calls {
         return d;
     }
 
-    private static String callLine(JSONObject call) {
+    static String callLine(JSONObject call) {
         String dir = call.optString("dir");
         int dur = call.optInt("dur");
         String d = "in".equals(dir) ? "받은 전화" : "out".equals(dir) ? "건 전화" : "못 받은 전화";
