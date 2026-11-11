@@ -101,7 +101,7 @@ jobs:
             adb logcat -d -b crash > crash3.txt || true
             echo "===== crash (인터넷 끔) ====="; cat crash3.txt
             if grep -q "FATAL EXCEPTION" crash3.txt; then exit 1; fi
-            adb shell pidof app.relrecord || { echo "인터넷 끄니 앱이 꺼져 있어요"; exit 1; }
+            adb shell pidof app.relrecord || { echo "인터넷 끄니 앱이 꺼져 있어요"; adb logcat -d | grep -iE "relrecord|chromium|webview|ActivityManager|lowmem" | tail -80; exit 1; }
             echo "인터넷 꺼도 앱이 켜져 있어요"
       # 화면 사진(밝은·어두운): 모양 확인용
       - uses: actions/upload-artifact@v4

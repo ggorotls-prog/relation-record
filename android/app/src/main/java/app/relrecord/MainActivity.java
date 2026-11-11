@@ -57,6 +57,18 @@ public class MainActivity extends Activity {
                 openFromIntent();
             }
             @Override public boolean shouldOverrideUrlLoading(WebView v, String url) { return true; } // 앱 밖으로 안 나감
+            // 화면을 그리는 부분(WebView)이 죽어도 앱은 살린다: 화면을 새로 만든다(안 하면 앱이 통째로 꺼진다)
+            @Override public boolean onRenderProcessGone(WebView v, android.webkit.RenderProcessGoneDetail d) {
+                try {
+                    android.view.ViewGroup parent = (android.view.ViewGroup) v.getParent();
+                    if (parent != null) parent.removeView(v);
+                    v.destroy();
+                } catch (Exception ignored) {}
+                web = null;
+                loaded = false;
+                recreate();
+                return true;
+            }
         });
         web.loadUrl("file:///android_asset/index.html");
         setContentView(web);
