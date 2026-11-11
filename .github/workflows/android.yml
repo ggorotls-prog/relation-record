@@ -90,7 +90,7 @@ jobs:
             adb logcat -d -b crash > crash2.txt || true
             echo "===== crash (권한 켬·가상 전화) ====="; cat crash2.txt
             if grep -q "FATAL EXCEPTION" crash2.txt; then exit 1; fi
-            adb shell pidof app.relrecord || { echo "가상 전화 뒤 앱이 꺼져 있어요"; exit 1; }
+            # 통화 화면이 앞에 오면 폰이 뒤에 있는 앱을 정리할 수 있어 「켜져 있나」는 보지 않고 오류(FATAL)만 본다(2026-11-11 3번 빌드)
             adb exec-out screencap -p > shot-perm.png || true
             # 인터넷을 끄고 켜 봐도 꺼지지 않는지
             adb shell svc wifi disable; adb shell svc data disable; adb shell cmd connectivity airplane-mode enable || true
