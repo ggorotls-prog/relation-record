@@ -223,9 +223,6 @@ public class MainActivity extends Activity {
             new Thread(() -> { Calls.send(app); js("window.onNative && onNative('synced')"); }).start();
         }
 
-        // 지난 30일 동안 통화했는데 아직 안 정한 번호(연락처 사람 포함)
-        @JavascriptInterface public String recent() { return Calls.recent(getApplicationContext(), Calls.PAST_DAYS).toString(); }
-
         @JavascriptInterface public void notPerson(String phone) { Calls.notPerson(getApplicationContext(), Calls.norm(phone)); }
 
         @JavascriptInterface public String excluded() {

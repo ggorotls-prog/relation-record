@@ -137,65 +137,7 @@ final class Calls {
                 try { st.addOutbox(call.put("person_id", personId)); } catch (Exception ignored) {}
             }
         }
-        // 지난 통화도 그 사람 기록으로(같은 통화는 서버가 한 번만 받는다)
-        backfill(c, phone, personId, PAST_DAYS);
         cancel(c, phone);
-    }
-
-    static final int PAST_DAYS = 30;
-
-    // 이 번호와의 지난 통화(days일)를 보낼 통화에 넣는다
-    static void backfill(Context c, String phone, String personId, int days) {
-        if (c.checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) return;
-        Store st = Store.get(c);
-        long since = System.currentTimeMillis() - days * 86_400_000L;
-        String[] cols = {CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION};
-        try (Cursor cur = c.getContentResolver().query(CallLog.Calls.CONTENT_URI, cols,
-                CallLog.Calls.DATE + " > ?", new String[]{String.valueOf(since)}, CallLog.Calls.DATE + " ASC")) {
-            while (cur != null && cur.moveToNext()) {
-                if (!phone.equals(norm(cur.getString(0)))) continue;
-                String dir = dir(cur.getInt(1));
-                if (dir == null) continue;
-                long at = cur.getLong(2);
-                st.addOutbox(new JSONObject().put("person_id", personId).put("dir", dir).put("at", iso(at))
-                        .put("dur", cur.getInt(3)).put("key", at + "_" + phone));
-            }
-        } catch (Exception ignored) {}
-    }
-
-    // 지난 days일 동안 통화한 번호 중 아직 안 정한 것(등록·제외·답 대기 아님). 연락처에 있는 사람도 포함.
-    // [{phone, name, last, count, dir}] 최근 순. 화면 「지난 통화」에서 하나씩 [기록] [아님].
-    static JSONArray recent(Context c, int days) {
-        JSONArray out = new JSONArray();
-        if (c.checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) return out;
-        Store st = Store.get(c);
-        JSONObject people = st.people(), pend = st.pending();
-        Set<String> excluded = st.excluded();
-        java.util.LinkedHashMap<String, JSONObject> seen = new java.util.LinkedHashMap<>();
-        long since = System.currentTimeMillis() - days * 86_400_000L;
-        String[] cols = {CallLog.Calls.NUMBER, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION};
-        try (Cursor cur = c.getContentResolver().query(CallLog.Calls.CONTENT_URI, cols,
-                CallLog.Calls.DATE + " > ?", new String[]{String.valueOf(since)}, CallLog.Calls.DATE + " DESC")) {
-            while (cur != null && cur.moveToNext()) {
-                String phone = norm(cur.getString(0));
-                String dir = dir(cur.getInt(1));
-                if (phone.length() < 7 || dir == null) continue;
-                if (people.has(phone) || excluded.contains(phone) || pend.has(phone)) continue;
-                JSONObject x = seen.get(phone);
-                if (x == null) {
-                    x = new JSONObject().put("phone", phone).put("last", iso(cur.getLong(2))).put("dir", dir).put("count", 0).put("talked", false);
-                    seen.put(phone, x);
-                }
-                x.put("count", x.optInt("count") + 1);
-                if (!"missed".equals(dir) && cur.getInt(3) > 0) x.put("talked", true);
-            }
-        } catch (Exception ignored) {}
-        for (JSONObject x : seen.values()) {
-            if (!x.optBoolean("talked")) continue; // 실제로 통화한 번호만(못 받은 전화뿐인 번호는 뺌)
-            try { x.put("name", contactName(c, x.optString("phone"))); } catch (Exception ignored) {}
-            out.put(x);
-        }
-        return out;
     }
 
     // [아님]: 제외 목록에 넣고 다시 안 묻는다
