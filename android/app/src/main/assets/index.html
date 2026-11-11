@@ -89,11 +89,12 @@ textarea{resize:none;min-height:72px}
   <div class="top"><h1>관계 기록</h1><button class="icon" id="go-settings" aria-label="설정">⚙</button></div>
   <div id="setup"></div>
   <div id="pending-wrap"></div>
-  <div class="sec">사람<small id="people-sub"></small></div>
+  <div class="sec" style="display:flex;align-items:flex-end;gap:8px"><div style="flex:1">사람<small id="people-sub"></small></div>
+    <!-- 메인 수집은 통화(2026-11-11 룡). 직접 넣기는 보조라 작게 -->
+    <button class="btn ghost small" id="add-person" style="padding:6px 12px;font-size:13px">+ 사람</button></div>
   <div id="tabs" style="display:flex;gap:6px;overflow-x:auto;margin:0 0 10px;padding-bottom:2px"></div>
   <input class="search" id="q" placeholder="이름이나 번호로 찾기" inputmode="search">
   <div class="card" id="people" style="margin-top:10px"></div>
-  <button class="fab" id="add-person">+ 사람</button>
 </div>
 
 <!-- 사람 한 명 -->
