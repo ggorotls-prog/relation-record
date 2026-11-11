@@ -27,7 +27,7 @@ import java.util.Set;
 //  등록된 사람 → 묻지 않고 서버에 기록 / 제외 번호 → 건너뜀 / 처음 번호(연결된 통화) → 「기록할 사람인가요?」 알림 [기록] [아님].
 // 어떤 전화 앱(익시오 등)으로 통화해도 폰 통화 기록은 같으므로 동작한다. 녹음·통화 내용은 읽지 않는다.
 final class Calls {
-    static final String CH_ASK = "ask";
+    static final String CH_ASK = "ask", CH_QUIET = "ask-quiet";
     private static final Object LOCK = new Object();
 
     private Calls() {}
@@ -153,6 +153,8 @@ final class Calls {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         if (nm == null) return;
         nm.createNotificationChannel(new NotificationChannel(CH_ASK, "기록할 사람인가요?", NotificationManager.IMPORTANCE_HIGH));
+        // 지워진 알림을 다시 띄울 때는 소리·진동 없는 채널로
+        nm.createNotificationChannel(new NotificationChannel(CH_QUIET, "기록할 사람인가요? (다시 알림)", NotificationManager.IMPORTANCE_LOW));
         int id = notifId(phone);
         Intent rec = new Intent(c, MainActivity.class).setAction(MainActivity.ACTION_REGISTER)
                 .putExtra("phone", phone).putExtra("name", name == null ? "" : name)
@@ -162,7 +164,7 @@ final class Calls {
         PendingIntent pNo = PendingIntent.getBroadcast(c, id, no, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String who = (name == null || name.isEmpty()) ? pretty(phone) : name + " · " + pretty(phone);
         String line = call == null ? "" : " · " + callLine(call);
-        Notification.Builder nb = new Notification.Builder(c, CH_ASK)
+        Notification.Builder nb = new Notification.Builder(c, silent ? CH_QUIET : CH_ASK)
                 .setSmallIcon(R.drawable.ic_notify)
                 .setColor(0xFFA35A3C)
                 .setContentTitle("기록할 사람인가요?")
@@ -174,8 +176,6 @@ final class Calls {
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_REMINDER);
-        // 지워진 알림을 다시 띄울 때는 소리·진동 없이
-        if (silent && android.os.Build.VERSION.SDK_INT >= 31) nb.setSilent(true);
         Notification n = nb.build();
         try { nm.notify(id, n); } catch (SecurityException ignored) {}
     }
