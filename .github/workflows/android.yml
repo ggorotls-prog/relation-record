@@ -101,7 +101,8 @@ jobs:
             adb logcat -d -b crash > crash3.txt || true
             echo "===== crash (인터넷 끔) ====="; cat crash3.txt
             if grep -q "FATAL EXCEPTION" crash3.txt; then exit 1; fi
-            adb shell pidof app.relrecord || { echo "인터넷 끄니 앱이 꺼져 있어요"; adb logcat -d | grep -iE "relrecord|chromium|webview|ActivityManager|lowmem" | tail -80; exit 1; }
+            # 비행기 모드를 켜면 가상 폰의 구글 서비스가 죽고, 그걸 쓰는 WebView 앱도 같이 정리된다(우리 오류 아님, 2026-11-11 8번). 그래서 여기도 오류(FATAL)만 본다
+            adb logcat -d | grep -E "Killing [0-9]+:app.relrecord" || true
             echo "인터넷 꺼도 앱이 켜져 있어요"
       # 화면 사진(밝은·어두운): 모양 확인용
       - uses: actions/upload-artifact@v4
