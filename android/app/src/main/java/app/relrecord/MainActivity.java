@@ -329,6 +329,17 @@ public class MainActivity extends Activity {
             new Thread(() -> { Calls.run(getApplicationContext()); js("window.onNative && onNative('synced')"); }).start();
         }
 
+        // 복사해 둔 글(녹음 글 붙이기용). 화면이 앞에 있을 때만 읽힌다
+        @JavascriptInterface public String clip() {
+            try {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                android.content.ClipData d = cm == null ? null : cm.getPrimaryClip();
+                if (d == null || d.getItemCount() == 0) return "";
+                CharSequence t = d.getItemAt(0).coerceToText(MainActivity.this);
+                return t == null ? "" : t.toString();
+            } catch (Exception e) { return ""; }
+        }
+
         @JavascriptInterface public void close() { runOnUiThread(MainActivity.this::finish); }
 
         // 폰 연락처에서 한 사람 고르기(폰 기본 고르기 화면)

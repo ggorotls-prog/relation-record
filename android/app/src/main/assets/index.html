@@ -52,6 +52,8 @@ textarea{resize:none;min-height:72px}
 .rec .h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .rec .h .when{font-size:13px;color:var(--sub)}
 .rec .body{margin-top:4px;white-space:pre-wrap;word-break:break-word}
+.rec .paste{margin-top:8px;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.rec .paste.has{color:var(--sub)}
 .rec .act{margin-left:auto;color:var(--sub);font-size:13px;background:none;padding:2px 4px}
 .dir{font-weight:600;font-size:14px}
 .dir.missed{color:#b3261e}
@@ -342,7 +344,9 @@ function renderPerson() {
     const by = r.mine ? '' : ` · ${esc(r.by)}`;
     const act = r.mine ? `<button class="act" onclick="recMenu('${r.id}')">⋯</button>` : '';
     if (r.kind === 'call')
-      return `<div class="rec"><div class="h"><span class="dir ${r.dir}">${DIR[r.dir] || ''}</span>${r.dur ? `<span class="muted">${dur(r.dur)}</span>` : ''}${chip(r.area)}${act}</div><div class="when muted">${when(r.at)}${by}</div></div>`;
+      return `<div class="rec"><div class="h"><span class="dir ${r.dir}">${DIR[r.dir] || ''}</span>${r.dur ? `<span class="muted">${dur(r.dur)}</span>` : ''}${chip(r.area)}${act}</div><div class="when muted">${when(r.at)}${by}</div>` +
+        // 내 통화(실제로 통화한 것)에는 녹음 글 붙이기(2026-11-13 룡: 삼성 녹음 글을 복사해 붙이면 업무 기록 노트로)
+        (r.mine && r.dir !== 'missed' ? `<button class="paste${r.note ? ' has' : ''}" onclick="openPaste('${r.id}')">${r.note ? '📋 글 넣음 · 다시 붙이기' : '📋 녹음 글 붙이기'}</button>` : '') + `</div>`;
     return `<div class="rec"><div class="h"><span class="dir">📝 메모</span>${chip(r.area)}${act}</div><div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at)}${by}</div></div>`;
   }).join('') : '<div class="empty">아직 기록이 없어요</div>';
 }
@@ -360,6 +364,29 @@ $('#m-save').onclick = async () => {
   try { await rpc('rel_add_memo', { p_person: cur, p_area: memoArea, p_body: body }); $('#m-body').value = ''; toast('저장했어요'); await load(); }
   catch (e) { toast(e.message); }
   $('#m-save').disabled = false;
+};
+// 통화에 녹음 글 붙이기: 삼성 녹음 앱에서 글을 복사 → 여기서 붙여넣기 → 저장하면 업무 기록 「노트」로 들어간다
+window.openPaste = function (id) {
+  const r = D.records.find((x) => x.id === id); if (!r) return;
+  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">삼성 녹음 앱에서 글을 복사한 뒤 「붙여넣기」를 눌러요. 저장하면 업무 기록 노트로 들어가요.</div>
+    <textarea id="t-body" style="min-height:140px;max-height:38vh;width:100%" placeholder="여기에 통화 글"></textarea>
+    <div class="err" id="t-err"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn ghost" style="flex:1" onclick="pasteClip()">📋 붙여넣기</button>
+      <button class="btn" style="flex:2" id="t-save" onclick="saveTranscript('${id}')">저장</button></div>`);
+  pasteClip(true);
+};
+window.pasteClip = function (quiet) {
+  let t = ''; try { t = N.clip ? N.clip() : ''; } catch (e) {}
+  if (t && t.trim().length >= 5) { $('#t-body').value = t; $('#t-err').textContent = ''; }
+  else if (!quiet) $('#t-err').textContent = '복사해 둔 글이 없어요. 칸을 길게 눌러 붙여넣어도 돼요.';
+};
+window.saveTranscript = async function (id) {
+  const body = $('#t-body').value.trim();
+  if (body.length < 5) { $('#t-err').textContent = '붙일 글이 비어 있어요.'; return; }
+  $('#t-save').disabled = true; $('#t-err').textContent = '저장하는 중…';
+  try { await rpc('rel_add_transcript', { p_record: id, p_body: body }); closeSheet(); toast('글을 넣었어요'); await load(); }
+  catch (e) { $('#t-err').textContent = e.message; $('#t-save').disabled = false; }
 };
 // 내 기록: 영역 바꾸기·지우기
 window.recMenu = function (id) {
