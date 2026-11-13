@@ -27,7 +27,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 // 통화가 끝나면 화면 아래에 뜨는 작은 창(2026-11-11 룡 「알림 말고 팝업, 바로 저장」).
-// 「기록할 사람인가요?」 + 이름(연락처 이름 채움) + 영역 고르기 + [저장] [아님].
+// 「다시 연락할 사람인가요?」 + 이름(연락처 이름 채움) + 영역 고르기 + [저장] [아님].
+// 기준(2026-11-13 룡): 기록할 사람 = 다시 연락할 사람. 영역 = 무슨 일로 통화했나(일이 아니면 개인).
+// 「개인」이 미리 골라져 있어 모르겠으면 [저장]만 누른다. 일 영역을 누르면 그 영역으로 바뀐다.
 // 밖을 눌러 닫으면 알림·앱 첫 화면에 남아 나중에 답할 수 있다.
 public class AskActivity extends Activity {
     // 화면 값(브랜드 가이드 9절) + 관계 기록 포인트 색
@@ -40,7 +42,7 @@ public class AskActivity extends Activity {
     private TextView err;
     private LinearLayout chips;
     private final List<String> areas = new ArrayList<>(), picked = new ArrayList<>();
-    private boolean busy;
+    private boolean busy, defaulted; // defaulted = 「개인」이 미리 골라진 그대로(아직 손 안 댐)
 
     static void open(Context c, String phone, String name, JSONObject call) {
         Intent i = new Intent(c, AskActivity.class)
@@ -90,6 +92,8 @@ public class AskActivity extends Activity {
             for (int k = 0; k < a.length(); k++) areas.add(a.getString(k));
         } catch (Exception ignored) {}
         areas.add("개인");
+        picked.add("개인");
+        defaulted = true;
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -100,7 +104,8 @@ public class AskActivity extends Activity {
         g.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         card.setBackground(g);
 
-        card.addView(text("기록할 사람인가요?", 19, true, INK));
+        card.addView(text("다시 연락할 사람인가요?", 19, true, INK));
+        card.addView(text("택배·배달·광고·한 번 묻고 끝난 곳은 [아님]", 12, false, SUB), m(dp(2), 0));
         TextView sub = text(Calls.pretty(phone) + line, 14, false, SUB);
         card.addView(sub, m(dp(4), dp(14)));
 
@@ -117,7 +122,8 @@ public class AskActivity extends Activity {
         TextView hint = text("이름이 없으면 번호로 저장돼요. 나중에 고칠 수 있어요.", 12, false, SUB);
         card.addView(hint, m(0, dp(14)));
 
-        card.addView(text("영역 · 처음 고른 것에 통화가 들어가요", 14, true, INK), m(0, dp(8)));
+        card.addView(text("무슨 일로 통화했나요?", 14, true, INK), m(0, dp(2)));
+        card.addView(text("일이 아니거나 모르겠으면 「개인」 그대로 저장 (나만 봐요, 나중에 바꿀 수 있어요)", 12, false, SUB), m(0, dp(8)));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
         chips = new LinearLayout(this);
@@ -157,7 +163,10 @@ public class AskActivity extends Activity {
             t.setPadding(dp(14), dp(9), dp(14), dp(9));
             t.setBackground(at >= 0 ? box(ACCENT, ACCENT) : box(BG, LINE));
             t.setOnClickListener(v -> {
-                if (picked.contains(a)) picked.remove(a); else picked.add(a);
+                // 미리 골라진 「개인」에서 일 영역을 처음 누르면 더하지 않고 그 영역으로 바꾼다(통화가 그 영역에 들어가게)
+                if (defaulted && !picked.contains(a)) { picked.clear(); picked.add(a); }
+                else if (picked.contains(a)) picked.remove(a); else picked.add(a);
+                defaulted = false;
                 drawChips();
             });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);

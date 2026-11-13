@@ -24,7 +24,7 @@ import java.util.Locale;
 import java.util.Set;
 
 // 통화가 끝나면: 폰 통화 기록에서 새 통화를 읽어
-//  등록된 사람 → 묻지 않고 서버에 기록 / 제외 번호 → 건너뜀 / 처음 번호(연결된 통화) → 「기록할 사람인가요?」 알림 [기록] [아님].
+//  등록된 사람 → 묻지 않고 서버에 기록 / 제외 번호 → 건너뜀 / 처음 번호(연결된 통화) → 「다시 연락할 사람인가요?」 알림 [기록] [아님].
 // 어떤 전화 앱(익시오 등)으로 통화해도 폰 통화 기록은 같으므로 동작한다. 녹음·통화 내용은 읽지 않는다.
 final class Calls {
     static final String CH_ASK = "ask", CH_QUIET = "ask-quiet";
@@ -174,7 +174,7 @@ final class Calls {
         Notification.Builder nb = new Notification.Builder(c, silent ? CH_QUIET : CH_ASK)
                 .setSmallIcon(R.drawable.ic_notify)
                 .setColor(0xFFA35A3C)
-                .setContentTitle("기록할 사람인가요?")
+                .setContentTitle("다시 연락할 사람인가요?")
                 .setContentText(who + line)
                 .setContentIntent(pRec)
                 .addAction(new Notification.Action.Builder(null, "기록", pRec).build())

@@ -119,7 +119,7 @@ textarea{resize:none;min-height:72px}
   <div id="f-attach"></div>
   <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="폰 연락처 이름 그대로"></div>
   <div class="field"><label>번호</label><textarea id="f-phones" style="min-height:52px" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
-  <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 여러 개 고를 수 있어요. 맨 처음 고른 것에 통화가 들어가요</span></label><div id="f-areas"></div>
+  <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 무슨 일로 연락하는 사람인가요? 일이 아니거나 모르겠으면 「개인」</span></label><div id="f-areas"></div>
     <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
   <div class="err" id="f-err"></div>
   <button class="btn full" id="f-save">저장</button>
@@ -285,7 +285,7 @@ function renderHome() {
   // 답 안 한 번호
   let pend = []; try { pend = JSON.parse(N.pending()); } catch (e) {}
   if (pend.length) {
-    $('#pending-wrap').innerHTML = `<div class="sec">기록할 사람인가요?<small>처음 보는 번호와 통화했어요. 답하면 다시 안 물어요.</small></div><div class="card">` +
+    $('#pending-wrap').innerHTML = `<div class="sec">다시 연락할 사람인가요?<small>처음 보는 번호와 통화했어요. 택배·배달·광고·한 번 묻고 끝난 곳은 「아님」.</small></div><div class="card">` +
       pend.map((x) => {
         const c = (x.calls || [])[x.calls.length - 1] || {};
         return `<div class="row"><div class="grow"><div class="t">${esc(x.name || pretty(x.phone))}</div><div class="s">${x.name ? pretty(x.phone) + ' · ' : ''}${c.at ? when(c.at) + ' · ' + (DIR[c.dir] || '') : ''}${(x.calls || []).length > 1 ? ' · ' + x.calls.length + '번' : ''}</div></div>
@@ -377,7 +377,8 @@ window.delRec = async function (id) {
 
 // ---- 등록·고치기 ----
 function openForm(p, phone, name) {
-  form = { id: p ? p.id : null, areas: p ? p.areas.slice() : [], fromPhone: phone || '' };
+  // 새 사람은 「개인」이 미리 골라져 있다(2026-11-13 룡: 모르겠으면 그냥 저장). 일 영역을 처음 누르면 그 영역으로 바뀐다
+  form = { id: p ? p.id : null, areas: p ? p.areas.slice() : ['개인'], defaulted: !p, fromPhone: phone || '' };
   $('#f-title').textContent = p ? '고치기' : '사람 등록';
   $('#f-name').value = p ? p.name : (name || '');
   $('#f-phones').value = p ? p.phones.map(pretty).join('\n') : (phone ? pretty(phone) : '');
@@ -400,11 +401,13 @@ function renderAreas() {
     return `<button class="chip btnchip${i >= 0 ? ' sel' : ''}" onclick="toggleArea('${a}')">${i === 0 ? '① ' : ''}${esc(a)}</button>`;
   }).join('');
   const main = form.areas[0];
-  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '「개인」 = 교회·친구·가족, 나만 봐요. 오레진은 아직 닫혀 있어요.';
+  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '여러 개 고르면 ①에 통화가 들어가요. 「개인」 = 일이 아닌 사람(교회·친구·가족), 나만 봐요. 오레진은 아직 닫혀 있어요.';
 }
 window.toggleArea = function (a) {
   const i = form.areas.indexOf(a);
-  if (i >= 0) form.areas.splice(i, 1); else form.areas.push(a);
+  if (form.defaulted && i < 0) form.areas = [a];
+  else if (i >= 0) form.areas.splice(i, 1); else form.areas.push(a);
+  form.defaulted = false;
   renderAreas();
 };
 // 지금 번호 → 기존 사람
