@@ -87,11 +87,11 @@ public class AskActivity extends Activity {
 
         areas.clear();
         picked.clear();
+        areas.add("개인"); // 미리 골라진 칸이 보이게 맨 앞에
         try {
             JSONArray a = new JSONArray(Store.get(this).areas());
             for (int k = 0; k < a.length(); k++) areas.add(a.getString(k));
         } catch (Exception ignored) {}
-        areas.add("개인");
         picked.add("개인");
         defaulted = true;
 

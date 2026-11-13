@@ -133,7 +133,7 @@ textarea{resize:none;min-height:72px}
   <div style="display:flex;gap:8px;margin-bottom:10px"><input id="x-add" inputmode="tel" placeholder="번호 더하기"><button class="btn" id="x-go" style="flex:0 0 auto;min-width:96px;white-space:nowrap;font-size:16px">더하기</button></div>
   <div class="card" id="x-list"></div>
   <div class="sec">계정</div>
-  <div class="card"><div class="row"><div class="grow"><div class="t" id="s-me"></div><div class="s">업무 기록에서 볼 수 있는 영역이 여기서도 보여요</div></div><button class="btn ghost small" id="s-out">나가기</button></div></div>
+  <div class="card"><div class="row"><div class="grow"><div class="t" id="s-me"></div><div class="s">업무 기록에서 내가 보는 영역이 여기서도 그대로 보여요</div></div><button class="btn ghost small" id="s-out">나가기</button></div></div>
   <p class="muted" style="text-align:center;margin-top:20px" id="s-ver"></p>
 </div>
 
@@ -230,7 +230,9 @@ function ago(iso) {
 }
 function dur(s) { s = s || 0; if (!s) return ''; return (s >= 60 ? Math.floor(s / 60) + '분 ' : '') + (s % 60) + '초'; }
 const DIR = { in: '받음', out: '걸음', missed: '못 받음' };
-const chip = (a) => `<span class="chip${a === '개인' ? ' me' : ''}">${esc(a)}</span>`;
+// 나만 보는 칸: 「개인」 + 서버가 알려 준 내 칸(룡: 사역, 2026-11-13)
+const isPriv = (a) => a === '개인' || ((D.me && D.me.private) || []).includes(a);
+const chip = (a) => `<span class="chip${isPriv(a) ? ' me' : ''}">${esc(a)}</span>`;
 
 // ---- 불러오기 ----
 async function load() {
@@ -334,7 +336,7 @@ function renderPerson() {
   const opts = myAreas();
   if (!memoArea || !opts.includes(memoArea)) memoArea = p.areas.find((a) => opts.includes(a)) || '개인';
   $('#m-area').textContent = memoArea + ' ▾';
-  $('#m-area-help').textContent = memoArea === '개인' ? '나만 봐요' : memoArea + '를 볼 수 있는 사람이 봐요';
+  $('#m-area-help').textContent = isPriv(memoArea) ? '나만 봐요' : memoArea + '를 볼 수 있는 사람이 봐요';
   const recs = D.records.filter((r) => r.person_id === cur);
   $('#p-records').innerHTML = recs.length ? recs.map((r) => {
     const by = r.mine ? '' : ` · ${esc(r.by)}`;
@@ -348,7 +350,7 @@ function myAreas() { return (D.me.areas || []).concat(['개인']); }
 $('#p-edit').onclick = () => { const p = personOf(cur); if (p) openForm(p, '', ''); };
 $('#m-area').onclick = () => {
   sheet(`<h3>이 메모를 누가 볼까요?</h3>` + myAreas().map((a) =>
-    `<button class="opt" onclick="setMemoArea('${a}')">${chip(a)} ${a === '개인' ? '나만' : esc(a) + '를 볼 수 있는 사람'}</button>`).join(''));
+    `<button class="opt" onclick="setMemoArea('${a}')">${chip(a)} ${isPriv(a) ? '나만' : esc(a) + '를 볼 수 있는 사람'}</button>`).join(''));
 };
 window.setMemoArea = function (a) { memoArea = a; closeSheet(); renderPerson(); };
 $('#m-save').onclick = async () => {
@@ -401,7 +403,7 @@ function renderAreas() {
     return `<button class="chip btnchip${i >= 0 ? ' sel' : ''}" onclick="toggleArea('${a}')">${i === 0 ? '① ' : ''}${esc(a)}</button>`;
   }).join('');
   const main = form.areas[0];
-  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '여러 개 고르면 ①에 통화가 들어가요. 「개인」 = 일이 아닌 사람(교회·친구·가족), 나만 봐요. 오레진은 아직 닫혀 있어요.';
+  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '여러 개 고르면 ①에 통화가 들어가요. 「개인」 = 일이 아닌 사람(친구·가족), 나만 봐요.';
 }
 window.toggleArea = function (a) {
   const i = form.areas.indexOf(a);
