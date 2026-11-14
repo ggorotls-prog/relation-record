@@ -338,7 +338,7 @@ function renderPerson() {
   const opts = myAreas();
   if (!memoArea || !opts.includes(memoArea)) memoArea = p.areas.find((a) => opts.includes(a)) || '개인';
   $('#m-area').textContent = memoArea + ' ▾';
-  $('#m-area-help').textContent = isPriv(memoArea) ? '나만 봐요' : memoArea + '를 볼 수 있는 사람이 봐요';
+  $('#m-area-help').textContent = '관계 기록은 나만 봐요'; // 2026-11-14 룡: 관계 기록은 절대로 개인이 관리
   const recs = D.records.filter((r) => r.person_id === cur);
   $('#p-records').innerHTML = recs.length ? recs.map((r) => {
     const by = r.mine ? '' : ` · ${esc(r.by)}`;
@@ -353,8 +353,8 @@ function renderPerson() {
 function myAreas() { return (D.me.areas || []).concat(['개인']); }
 $('#p-edit').onclick = () => { const p = personOf(cur); if (p) openForm(p, '', ''); };
 $('#m-area').onclick = () => {
-  sheet(`<h3>이 메모를 누가 볼까요?</h3>` + myAreas().map((a) =>
-    `<button class="opt" onclick="setMemoArea('${a}')">${chip(a)} ${isPriv(a) ? '나만' : esc(a) + '를 볼 수 있는 사람'}</button>`).join(''));
+  sheet(`<h3>이 메모는 무슨 일인가요?</h3>` + myAreas().map((a) =>
+    `<button class="opt" onclick="setMemoArea('${a}')">${chip(a)}</button>`).join(''));
 };
 window.setMemoArea = function (a) { memoArea = a; closeSheet(); renderPerson(); };
 $('#m-save').onclick = async () => {
@@ -430,7 +430,7 @@ function renderAreas() {
     return `<button class="chip btnchip${i >= 0 ? ' sel' : ''}" onclick="toggleArea('${a}')">${i === 0 ? '① ' : ''}${esc(a)}</button>`;
   }).join('');
   const main = form.areas[0];
-  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '여러 개 고르면 ①에 통화가 들어가요. 「개인」 = 일이 아닌 사람(친구·가족), 나만 봐요.';
+  $('#f-area-help').textContent = (main ? `통화는 「${main}」에 들어가요. ` : '') + '여러 개 고르면 ①에 통화가 들어가요. 「개인」 = 일이 아닌 사람(친구·가족). 영역은 분류일 뿐, 관계 기록은 모두 나만 봐요.';
 }
 window.toggleArea = function (a) {
   const i = form.areas.indexOf(a);

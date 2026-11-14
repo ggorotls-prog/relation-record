@@ -123,7 +123,7 @@ public class AskActivity extends Activity {
         card.addView(hint, m(0, dp(14)));
 
         card.addView(text("무슨 일로 통화했나요?", 14, true, INK), m(0, dp(2)));
-        card.addView(text("일이 아니거나 모르겠으면 「개인」 그대로 저장 (나만 봐요, 나중에 바꿀 수 있어요)", 12, false, SUB), m(0, dp(8)));
+        card.addView(text("일이 아니거나 모르겠으면 「개인」 그대로 저장 (나중에 바꿀 수 있어요). 관계 기록은 모두 나만 봐요", 12, false, SUB), m(0, dp(8)));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
         chips = new LinearLayout(this);
