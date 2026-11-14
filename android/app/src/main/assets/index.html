@@ -103,6 +103,8 @@ textarea{resize:none;min-height:72px}
 <div class="view" id="v-person">
   <div class="top"><button class="icon back">←</button><h2 id="p-name"></h2><button class="btn ghost small" id="p-edit">고치기</button></div>
   <div id="p-info" style="margin:0 2px 14px"></div>
+  <!-- 프로필: 생일·주소·선물·그 밖에(2026-11-14 룡: 그 사람을 더 잘 챙기도록) -->
+  <div class="card" id="p-profile" style="margin-bottom:12px"></div>
   <div class="card" style="padding:12px">
     <textarea id="m-body" placeholder="짧은 메모 (쓰고 싶을 때만)" maxlength="500"></textarea>
     <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
@@ -340,6 +342,18 @@ function renderPerson() {
   $('#m-area').textContent = memoArea + ' ▾';
   $('#m-area-help').textContent = '관계 기록은 나만 봐요'; // 2026-11-14 룡: 관계 기록은 절대로 개인이 관리
   const recs = D.records.filter((r) => r.person_id === cur);
+  // 프로필 카드
+  const pf = p.profile || {};
+  const gifts = recs.filter((r) => r.kind === 'gift');
+  const lastGive = gifts.find((r) => r.dir === 'give'), lastGet = gifts.find((r) => r.dir === 'get');
+  const prow = (icon, label, val) => `<div class="row" style="align-items:flex-start"><div style="width:22px">${icon}</div><div class="grow"><div class="s">${label}</div><div style="white-space:pre-wrap;word-break:break-word">${val}</div></div></div>`;
+  let ph = '';
+  ph += prow('🎂', '생일', pf.birthday ? `${+pf.birthday.slice(0, 2)}월 ${+pf.birthday.slice(3)}일${pf.lunar ? ' (음력)' : ` · ${bdayLeft(pf.birthday)}`}` : '<span class="muted">아직 없어요</span>');
+  ph += prow('🏠', '주소', pf.address ? esc(pf.address) : '<span class="muted">아직 없어요</span>');
+  ph += prow('🎁', '선물', gifts.length ? [lastGive && `준 것: ${esc(lastGive.body)} (${ago(lastGive.at)})`, lastGet && `받은 것: ${esc(lastGet.body)} (${ago(lastGet.at)})`].filter(Boolean).join('<br>') + (gifts.length > 2 ? `<div class="s">모두 ${gifts.length}번 · 아래 기록에</div>` : '') : '<span class="muted">아직 없어요</span>');
+  if (pf.other) ph += prow('📝', '그 밖에', esc(pf.other));
+  ph += `<div class="row" style="gap:8px"><button class="btn ghost small" style="flex:1" onclick="openProfile()">프로필 고치기</button><button class="btn ghost small" style="flex:1" onclick="openGift()">🎁 선물 기록</button></div>`;
+  $('#p-profile').innerHTML = ph;
   $('#p-records').innerHTML = recs.length ? recs.map((r) => {
     const by = r.mine ? '' : ` · ${esc(r.by)}`;
     const act = r.mine ? `<button class="act" onclick="recMenu('${r.id}')">⋯</button>` : '';
@@ -347,9 +361,67 @@ function renderPerson() {
       return `<div class="rec"><div class="h"><span class="dir ${r.dir}">${DIR[r.dir] || ''}</span>${r.dur ? `<span class="muted">${dur(r.dur)}</span>` : ''}${chip(r.area)}${act}</div><div class="when muted">${when(r.at)}${by}</div>` +
         // 내 통화(실제로 통화한 것)에는 녹음 글 붙이기(2026-11-13 룡: 삼성 녹음 글을 복사해 붙이면 업무 기록 노트로)
         (r.mine && r.dir !== 'missed' ? `<button class="paste${r.note ? ' has' : ''}" onclick="openPaste('${r.id}')">${r.note ? '📋 글 넣음 · 다시 붙이기' : '📋 녹음 글 붙이기'}</button>` : '') + `</div>`;
+    if (r.kind === 'gift')
+      return `<div class="rec"><div class="h"><span class="dir">🎁 ${r.dir === 'get' ? '받은 선물' : '준 선물'}</span>${chip(r.area)}${act}</div><div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at).split(') ')[0]})</div></div>`;
     return `<div class="rec"><div class="h"><span class="dir">📝 메모</span>${chip(r.area)}${act}</div><div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at)}${by}</div></div>`;
   }).join('') : '<div class="empty">아직 기록이 없어요</div>';
 }
+// 다음 생일까지(양력만)
+function bdayLeft(md) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  let d = new Date(t.getFullYear(), +md.slice(0, 2) - 1, +md.slice(3));
+  if (d < t) d = new Date(t.getFullYear() + 1, +md.slice(0, 2) - 1, +md.slice(3));
+  const n = Math.round((d - t) / 864e5);
+  return n === 0 ? '오늘이에요 🎉' : `${n}일 남음`;
+}
+// 프로필 고치기: 생일(월·일, 음력) · 주소 · 그 밖에
+window.openProfile = function () {
+  const p = personOf(cur); if (!p) return; const pf = p.profile || {};
+  sheet(`<h3>${esc(p.name)} 프로필</h3>
+    <div class="field"><label>생일</label><div style="display:flex;gap:8px;align-items:center">
+      <input id="pf-m" inputmode="numeric" maxlength="2" placeholder="월" style="width:70px" value="${pf.birthday ? +pf.birthday.slice(0, 2) : ''}">월
+      <input id="pf-d" inputmode="numeric" maxlength="2" placeholder="일" style="width:70px" value="${pf.birthday ? +pf.birthday.slice(3) : ''}">일
+      <label style="display:flex;align-items:center;gap:4px;margin:0 0 0 8px;font-weight:400"><input type="checkbox" id="pf-l" style="width:auto" ${pf.lunar ? 'checked' : ''}>음력</label></div></div>
+    <div class="field"><label>주소</label><input id="pf-a" maxlength="200" value="${esc(pf.address || '')}"></div>
+    <div class="field"><label>그 밖에 <span class="muted" style="font-weight:400">(가족·좋아하는 것·챙길 것)</span></label><textarea id="pf-o" maxlength="1000" style="min-height:90px">${esc(pf.other || '')}</textarea></div>
+    <div class="err" id="pf-err"></div>
+    <button class="btn full" id="pf-save" onclick="saveProfile()">저장</button>`);
+};
+window.saveProfile = async function () {
+  const m = parseInt($('#pf-m').value, 10), d = parseInt($('#pf-d').value, 10);
+  let birthday = '';
+  if (m || d) {
+    if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31)) { $('#pf-err').textContent = '생일 월·일을 확인해 주세요.'; return; }
+    birthday = String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+  $('#pf-save').disabled = true;
+  try {
+    await rpc('rel_save_profile', { p_person: cur, p_profile: { birthday, lunar: $('#pf-l').checked, address: $('#pf-a').value, other: $('#pf-o').value } });
+    closeSheet(); toast('저장했어요'); await load();
+  } catch (e) { $('#pf-err').textContent = e.message; $('#pf-save').disabled = false; }
+};
+// 선물 기록: 준 것/받은 것 · 날짜 · 무엇
+let giftDir = 'give';
+window.openGift = function () {
+  giftDir = 'give';
+  const today = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
+  sheet(`<h3>🎁 선물 기록</h3>
+    <div style="display:flex;gap:6px;margin-bottom:12px" id="g-dir">${giftDirButtons()}</div>
+    <div class="field"><label>날짜</label><input type="date" id="g-date" value="${today}"></div>
+    <div class="field"><label>무엇을</label><input id="g-body" maxlength="200" placeholder="예: 홍삼 세트, 생일 케이크"></div>
+    <div class="err" id="g-err"></div>
+    <button class="btn full" id="g-save" onclick="saveGift()">저장</button>`);
+};
+function giftDirButtons() {
+  return [['give', '준 것'], ['get', '받은 것']].map(([k, t]) => `<button class="chip btnchip${giftDir === k ? ' sel' : ''}" style="margin:0" onclick="giftDir='${k}';$('#g-dir').innerHTML=giftDirButtons()">${t}</button>`).join('');
+}
+window.saveGift = async function () {
+  const body = $('#g-body').value.trim();
+  if (!body) { $('#g-err').textContent = '무엇을 주고받았는지 적어 주세요.'; return; }
+  $('#g-save').disabled = true;
+  try { await rpc('rel_add_gift', { p_person: cur, p_dir: giftDir, p_date: $('#g-date').value || null, p_body: body }); closeSheet(); toast('저장했어요'); await load(); }
+  catch (e) { $('#g-err').textContent = e.message; $('#g-save').disabled = false; }
+};
 function myAreas() { return (D.me.areas || []).concat(['개인']); }
 $('#p-edit').onclick = () => { const p = personOf(cur); if (p) openForm(p, '', ''); };
 $('#m-area').onclick = () => {
@@ -365,10 +437,10 @@ $('#m-save').onclick = async () => {
   catch (e) { toast(e.message); }
   $('#m-save').disabled = false;
 };
-// 통화에 녹음 글 붙이기: 삼성 녹음 앱에서 글을 복사 → 여기서 붙여넣기 → 저장하면 업무 기록 「노트」로 들어간다
+// 통화에 녹음 글 붙이기: 익시오 녹음 글(스크립트)을 복사(2026-11-14 룡, 일레븐랩스는 돈 벌면 나중에) → 여기서 붙여넣기 → 저장하면 업무 기록 「노트」로 들어간다
 window.openPaste = function (id) {
   const r = D.records.find((x) => x.id === id); if (!r) return;
-  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">삼성 녹음 앱에서 글을 복사한 뒤 「붙여넣기」를 눌러요. 저장하면 업무 기록 노트로 들어가요.</div>
+  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">익시오에서 통화 녹음 글(스크립트)을 복사한 뒤 「붙여넣기」를 눌러요. 저장하면 이 통화에 붙고, 나만 보는 노트로도 들어가요.</div>
     <textarea id="t-body" style="min-height:140px;max-height:38vh;width:100%" placeholder="여기에 통화 글"></textarea>
     <div class="err" id="t-err"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
@@ -393,7 +465,7 @@ window.recMenu = function (id) {
   const r = D.records.find((x) => x.id === id); if (!r) return;
   const p = personOf(r.person_id);
   const areas = myAreas().filter((a) => a === '개인' || (p && p.areas.includes(a)));
-  sheet(`<h3>${r.kind === 'call' ? '이 통화' : '이 메모'}</h3><div class="muted" style="margin:0 4px 8px">영역 바꾸기</div>` +
+  sheet(`<h3>${r.kind === 'call' ? '이 통화' : r.kind === 'gift' ? '이 선물' : '이 메모'}</h3><div class="muted" style="margin:0 4px 8px">영역 바꾸기</div>` +
     areas.map((a) => `<button class="opt" onclick="setArea('${id}','${a}')">${chip(a)} ${a === r.area ? '✓' : ''}</button>`).join('') +
     `<button class="opt" style="color:#b3261e" onclick="delRec('${id}')">지우기</button>`);
 };
