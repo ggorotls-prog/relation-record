@@ -340,6 +340,34 @@ public class MainActivity extends Activity {
             } catch (Exception e) { return ""; }
         }
 
+        // 복사한 때(ms). 없으면 0. 방금 복사한 글인지 보려고
+        @JavascriptInterface public double clipTime() {
+            try {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                android.content.ClipDescription d = cm == null ? null : cm.getPrimaryClipDescription();
+                return d == null ? 0 : d.getTimestamp();
+            } catch (Exception e) { return 0; }
+        }
+
+        // 익시오 열기(녹음 글 복사하러): 폰에 깔린 앱 중 이름에 「익시오」/ixi가 있는 것을 찾아 연다. 못 찾으면 false
+        @JavascriptInterface public boolean openIxio() {
+            try {
+                android.content.pm.PackageManager pm = getPackageManager();
+                Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+                for (android.content.pm.ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
+                    String label = String.valueOf(ri.loadLabel(pm)).toLowerCase();
+                    String pkg = ri.activityInfo.packageName.toLowerCase();
+                    if (label.contains("익시오") || label.contains("ixi") || pkg.contains("ixi")) {
+                        Intent i = pm.getLaunchIntentForPackage(ri.activityInfo.packageName);
+                        if (i == null) continue;
+                        startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        return true;
+                    }
+                }
+            } catch (Exception ignored) {}
+            return false;
+        }
+
         @JavascriptInterface public void close() { runOnUiThread(MainActivity.this::finish); }
 
         // 폰 연락처에서 한 사람 고르기(폰 기본 고르기 화면)

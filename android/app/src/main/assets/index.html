@@ -440,14 +440,31 @@ $('#m-save').onclick = async () => {
 // 통화에 녹음 글 붙이기: 익시오 녹음 글(스크립트)을 복사(2026-11-14 룡, 일레븐랩스는 돈 벌면 나중에) → 여기서 붙여넣기 → 저장하면 업무 기록 「노트」로 들어간다
 window.openPaste = function (id) {
   const r = D.records.find((x) => x.id === id); if (!r) return;
-  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">익시오에서 통화 녹음 글(스크립트)을 복사한 뒤 「붙여넣기」를 눌러요. 저장하면 이 통화에 붙고, 나만 보는 노트로도 들어가요.</div>
+  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">${when(r.at)} 통화 · 익시오에서 이 통화의 녹음 글(스크립트)을 복사하고 돌아오면 저절로 들어가요. 저장하면 이 통화에 붙고, 나만 보는 노트로도 들어가요.</div>
     <textarea id="t-body" style="min-height:140px;max-height:38vh;width:100%" placeholder="여기에 통화 글"></textarea>
     <div class="err" id="t-err"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn ghost" style="flex:1" onclick="goIxio()">익시오 열기</button>
       <button class="btn ghost" style="flex:1" onclick="pasteClip()">📋 붙여넣기</button>
-      <button class="btn" style="flex:2" id="t-save" onclick="saveTranscript('${id}')">저장</button></div>`);
-  pasteClip(true);
+      <button class="btn" style="flex:1.4" id="t-save" onclick="saveTranscript('${id}')">저장</button></div>`);
+  // 단계 줄이기(2026-11-14 룡): 방금(2분 안) 복사한 글이 있으면 바로 넣고, 없으면 익시오를 바로 연다 → 복사하고 돌아오면 저절로 붙음
+  const ct = N.clipTime ? N.clipTime() : 0;
+  if (ct && Date.now() - ct < 120000) pasteClip(true);
+  else goIxio();
 };
+let pasteAfter = 0; // 이 시각 뒤에 복사한 글이면 돌아왔을 때 저절로 넣는다
+window.goIxio = function () {
+  pasteAfter = Date.now();
+  if (!(N.openIxio && N.openIxio())) { pasteAfter = 0; $('#t-err').textContent = '익시오를 못 찾았어요. 녹음 글을 복사해 와서 「붙여넣기」를 눌러요.'; }
+};
+// 익시오에서 돌아왔을 때: 그 뒤에 복사한 글이면 저절로 넣는다(화면이 앞에 와야 복사한 글이 읽혀서 조금 기다림)
+function pasteOnReturn() {
+  if (!pasteAfter || !$('#t-body') || !$('#sheet').classList.contains('on')) return;
+  setTimeout(() => {
+    const ct = N.clipTime ? N.clipTime() : 0;
+    if (ct >= pasteAfter) { pasteClip(true); if ($('#t-body').value) { pasteAfter = 0; toast('복사한 글을 넣었어요. 저장을 눌러요'); } }
+  }, 600);
+}
 window.pasteClip = function (quiet) {
   let t = ''; try { t = N.clip ? N.clip() : ''; } catch (e) {}
   if (t && t.trim().length >= 5) { $('#t-body').value = t; $('#t-err').textContent = ''; }
@@ -613,6 +630,7 @@ window.onNative = function (what, a, b) {
     return;
   }
   if (!N.token()) { if (stack[0] !== 'login') show('login'); return; }
+  if (what === 'resume') pasteOnReturn();
   if (what === 'synced' || what === 'resume') load();
   else render();
 };
