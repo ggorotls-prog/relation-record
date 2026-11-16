@@ -122,7 +122,7 @@ textarea{resize:none;min-height:72px}
   <div class="top"><button class="icon back">←</button><h2 id="f-title">사람 등록</h2></div>
   <div id="f-attach"></div>
   <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="폰 연락처 이름 그대로"></div>
-  <div class="field"><label>번호</label><textarea id="f-phones" style="min-height:52px" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
+  <div class="field"><label>번호</label><textarea id="f-phones" rows="1" style="min-height:0;height:auto;overflow:hidden" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
   <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 무슨 일로 연락하는 사람인가요? 일이 아니거나 모르겠으면 「개인」</span></label><div id="f-areas"></div>
     <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
   <div class="err" id="f-err"></div>
@@ -336,7 +336,7 @@ function renderPerson() {
   const p = personOf(cur);
   if (!p) { window.appBack(); return; }
   $('#p-name').textContent = p.name;
-  $('#p-info').innerHTML = `<div>${p.areas.map(chip).join('')}</div><div class="muted" style="margin-top:6px">${p.phones.map(pretty).join(' · ') || '번호 없음'}</div>`;
+  $('#p-info').innerHTML = `<div>${p.areas.map(chip).join('')}</div><div class="muted" style="margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.phones.map(pretty).join(' · ') || '번호 없음'}</div>`;
   const opts = myAreas();
   if (!memoArea || !opts.includes(memoArea)) memoArea = p.areas.find((a) => opts.includes(a)) || '개인';
   $('#m-area').textContent = memoArea + ' ▾';
@@ -494,6 +494,9 @@ window.delRec = async function (id) {
 };
 
 // ---- 등록·고치기 ----
+// 번호 칸: 평소 한 줄, 번호가 여럿이면 그만큼만 늘어남 (2026-11-16 룡 「관계 기록 번호 한줄로」)
+function fitPhones() { const t = $('#f-phones'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+$('#f-phones').oninput = fitPhones;
 function openForm(p, phone, name) {
   // 새 사람은 「개인」이 미리 골라져 있다(2026-11-13 룡: 모르겠으면 그냥 저장). 일 영역을 처음 누르면 그 영역으로 바뀐다
   form = { id: p ? p.id : null, areas: p ? p.areas.slice() : ['개인'], defaulted: !p, fromPhone: phone || '' };
@@ -511,6 +514,7 @@ function openForm(p, phone, name) {
         <button class="btn ghost small" style="flex:1" onclick="N.newContact($('#f-name').value, $('#f-phones').value.split('\\n')[0] || '')">＋ 새 연락처 만들기</button></div>` : '');
   renderAreas();
   show('form');
+  fitPhones();
 }
 function renderAreas() {
   const opts = myAreas();
@@ -619,7 +623,7 @@ window.onNative = function (what, a, b) {
     if (a) $('#f-name').value = a;
     if (b) {
       const ph = N.norm(b), cur = $('#f-phones').value.split(/[\n,]+/).map((x) => N.norm(x)).filter((x) => x.length >= 7);
-      if (ph.length >= 7 && !cur.includes(ph)) $('#f-phones').value = cur.concat([ph]).map(pretty).join('\n');
+      if (ph.length >= 7 && !cur.includes(ph)) { $('#f-phones').value = cur.concat([ph]).map(pretty).join('\n'); fitPhones(); }
     }
     return;
   }
