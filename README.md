@@ -15,3 +15,8 @@
 - 화면: `android/app/src/main/assets/index.html`(WebView). 서버 부르기는 `Native.rpc`(자바)로만.
 - 빌드: GitHub Actions → `app/relation-record.apk` + `app/version.json`(앱이 보고 스스로 업데이트). 서명은 기록 앱 공용 열쇠 `record`.
 - 받기: https://ggorotls-prog.github.io/relation-record/
+
+## 원본 한 벌 relkit (2026-11-16 룡 「기록 앱은 늘 내용물이 똑같다」)
+- 화면 글(`android/relkit/src/main/assets/rel/index.html`)과 폰 기능(통화 모으기·묻기 창·15분 확인)이 모두 `android/relkit`(패키지 `app.recordkit.rel`) 안에 있다. 관계 기록 앱(`app`)과 라이프 RPG(👥 이웃)가 같이 쓴다(RPG는 빌드 때 이 저장소를 받는다). 앱 쪽 `app.relrecord.*`는 이름만 지키는 얇은 클래스 + 새 버전 확인. 고칠 곳은 늘 relkit: 고쳐 push하면 이 앱은 바로, RPG는 `gh workflow run android.yml -R ggorotls-prog/life-rpg`로 새 버전.
+- 둘 다 깔렸을 때: 통화 모으기·묻기는 이 앱만(`Rel.quiet`, 같은 통화가 두 번 안 올라가게). **라이프 RPG만 깔아도 이 앱을 지워도 된다**(로그인은 RPG 로그인으로 이어짐 `rpg_rel_token`). 단, 「제외 번호」는 폰마다·앱마다 따로라 RPG에서 한 번 다시 넣는다(연락처 가져오기).
+
