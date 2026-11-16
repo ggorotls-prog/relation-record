@@ -23,7 +23,7 @@ public class UpdateReceiver extends BroadcastReceiver {
             try { ctx.startActivity(confirm); return; } catch (Exception ignored) {}
         }
         // 앱을 안 보고 있으면 알림으로: 누르면 설치 확인 화면
-        Updater.notify(ctx, "새 버전이 있어요", "눌러서 업데이트해요",
+        Updater.notify(ctx, Updater.TITLE, Updater.TEXT,
                 PendingIntent.getActivity(ctx, 5, confirm, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
     }
 }

@@ -2,6 +2,9 @@ package app.relrecord;
 
 import app.recordkit.rel.Net;
 
+import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -10,7 +13,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInstaller;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.provider.Settings;
+import android.service.notification.StatusBarNotification;
 
 import org.json.JSONObject;
 
@@ -30,7 +36,11 @@ import java.security.MessageDigest;
 // 플레이 스토어(내부 테스트)로 옮기기 전까지 쓰는 방식.
 final class Updater {
     private static final String PREFS = "rel-update";
-    private static final String CH_UPDATE = "update";
+    // 2026-11-16 소리·위에 뜨는 칸으로 바꿈(옛 칸 "update"는 조용한 칸이라 지운다. 칸 중요도는 만든 뒤 못 올림)
+    private static final String CH_UPDATE = "update_alert";
+    private static final int NOTE_ID = 9001;
+    static final String TITLE = "새 버전이 있어요";
+    static final String TEXT = "눌러서 업데이트하세요";
     private static final Object LOCK = new Object();
 
     private Updater() {}
@@ -55,14 +65,71 @@ final class Updater {
         checkAndInstall(ctx, force, false);
     }
 
-    // 앱을 안 보고 있을 때: 설치하지 않고 새 버전이 있다고 한 번만 알린다
+    // 앱을 안 보고 있을 때(15분 확인): 설치하지 않고 새 버전이 있다고 알린다.
+    // 설치될 때까지 15분마다 본다: 알림이 떠 있으면 그대로 두고, 지워졌으면 다시 띄운다(2026-11-16 룡 「업뎃되면 알림으로 업뎃하세요 뜨게」).
     static void notifyIfNew(Context ctx) {
         int code = latest(ctx);
-        if (code <= BuildConfig.VERSION_CODE) return;
-        SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        if (p.getInt("notified", 0) == code) return;
-        p.edit().putInt("notified", code).apply();
-        notify(ctx, "새 버전이 있어요", "눌러서 앱을 열고 업데이트해요", openApp(ctx));
+        if (code <= 0) return; // 인터넷이 안 되면 다음 확인 때
+        if (code <= BuildConfig.VERSION_CODE) { clearNotice(ctx); return; } // 이미 깔림: 남은 알림 치우기
+        if (showing(ctx)) return;
+        notify(ctx, TITLE, TEXT, openApp(ctx));
+    }
+
+    private static boolean showing(Context ctx) {
+        try {
+            for (StatusBarNotification s : ctx.getSystemService(NotificationManager.class).getActiveNotifications())
+                if (s.getId() == NOTE_ID) return true;
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    static void clearNotice(Context ctx) {
+        try { ctx.getSystemService(NotificationManager.class).cancel(NOTE_ID); } catch (Exception ignored) {}
+    }
+
+    // 알림이 꺼져 있으면 앱을 열 때마다 다시 묻는다(처음 한 번만 묻지 않는다, 2026-11-16).
+    // 안드로이드는 두 번 거절하면 허용 창을 더 안 띄우므로, 그때는 알림 설정 화면으로 안내한다.
+    // 허용 창(시스템)은 거절이 굳으면 소리 없이 넘어가므로, 늘 이 앱의 안내 창을 먼저 띄운다.
+    private static java.lang.ref.WeakReference<AlertDialog> notifDialog;
+
+    static void askNotifications(Activity a) {
+        if (a.isFinishing()) return;
+        AlertDialog old = notifDialog == null ? null : notifDialog.get();
+        if (notificationsOn(a)) { // 그새 켰으면(처음 허용 창에서 「허용」 등) 안내 창을 닫는다
+            if (old != null && old.isShowing()) try { old.dismiss(); } catch (Exception ignored) {}
+            return;
+        }
+        if (old != null && old.isShowing()) return;
+        SharedPreferences p = a.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        if (now - p.getLong("notifAskedAt", 0) < 600_000) return; // 「나중에」·설정에서 그냥 돌아온 뒤 10분은 또 묻지 않게
+        p.edit().putLong("notifAskedAt", now).apply();
+        AlertDialog d = new AlertDialog.Builder(a)
+                .setTitle("알림이 꺼져 있어요")
+                .setMessage("새 버전이 나오면 알림으로 알려 드려요.\n다음 화면에서 알림을 켜 주세요.")
+                .setPositiveButton("켜러 가기", (x, w) -> {
+                    // 아직 다시 물을 수 있으면 허용 창, 아니면 이 앱의 알림 설정 화면
+                    if (Build.VERSION.SDK_INT >= 33 && a.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                            && a.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
+                        a.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+                        return;
+                    }
+                    try {
+                        a.startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, a.getPackageName()));
+                    } catch (Exception ignored) {}
+                })
+                .setNegativeButton("나중에", null)
+                .create();
+        d.show();
+        notifDialog = new java.lang.ref.WeakReference<>(d);
+    }
+
+    static boolean notificationsOn(Context ctx) {
+        NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+        if (!nm.areNotificationsEnabled()) return false;
+        NotificationChannel ch = nm.getNotificationChannel(CH_UPDATE);
+        return ch == null || ch.getImportance() != NotificationManager.IMPORTANCE_NONE;
     }
 
     // 「업데이트」 창을 10분 안에 또 띄우지 않으려고
@@ -95,7 +162,7 @@ final class Updater {
 
                 if (!canInstall(ctx)) {
                     // 설치 허용을 아직 안 했으면: 앱을 열면 허용 화면으로 안내한다
-                    notify(ctx, "새 버전이 있어요", "눌러서 앱을 열면 업데이트해요", openApp(ctx));
+                    notify(ctx, TITLE, TEXT, openApp(ctx));
                     return;
                 }
                 File apk = download(ctx, Net.BASE + v.optString("apk", "/app/relation-record.apk"));
@@ -179,7 +246,8 @@ final class Updater {
 
     static void notify(Context ctx, String title, String text, PendingIntent tap) {
         NotificationManager nm = ctx.getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(new NotificationChannel(CH_UPDATE, "앱 업데이트", NotificationManager.IMPORTANCE_DEFAULT));
+        nm.deleteNotificationChannel("update"); // 옛 조용한 칸
+        nm.createNotificationChannel(new NotificationChannel(CH_UPDATE, "앱 업데이트", NotificationManager.IMPORTANCE_HIGH));
         Notification n = new Notification.Builder(ctx, CH_UPDATE)
                 .setSmallIcon(app.recordkit.rel.R.drawable.rel_ic_notify)
                 .setContentTitle(title)
@@ -187,6 +255,6 @@ final class Updater {
                 .setContentIntent(tap)
                 .setAutoCancel(true)
                 .build();
-        try { nm.notify(9001, n); } catch (SecurityException ignored) {}
+        try { nm.notify(NOTE_ID, n); } catch (SecurityException ignored) {}
     }
 }

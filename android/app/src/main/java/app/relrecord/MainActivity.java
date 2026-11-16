@@ -14,8 +14,10 @@ public class MainActivity extends app.recordkit.rel.RelScreen {
         android.content.Context app = getApplicationContext();
         boolean retry = backFromSecurity;
         backFromSecurity = false;
+        Updater.askNotifications(this); // 알림이 꺼져 있으면 열 때마다 다시 묻기(2026-11-16)
         new Thread(() -> {
             int latest = Updater.latest(app);
+            if (latest > 0 && latest <= BuildConfig.VERSION_CODE) Updater.clearNotice(app);
             if (latest <= BuildConfig.VERSION_CODE) return;
             if (!Updater.canInstall(this)) { runOnUiThread(this::askInstallPermission); return; }
             if (retry) { Updater.checkAndInstall(app, true, true); return; }
