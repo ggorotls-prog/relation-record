@@ -1,4 +1,4 @@
-package app.relrecord;
+package app.recordkit.rel;
 
 import android.Manifest;
 import android.app.Notification;
@@ -34,6 +34,7 @@ final class Calls {
 
     // 전체 한 바퀴: 번호 목록 받기 → 새 통화 읽기 → 보내기
     static void run(Context c) {
+        if (Rel.quiet(c)) return; // 관계 기록 앱이 같이 깔려 있으면 통화 모으기·묻기는 그 앱만(두 번 올라가지 않게)
         synchronized (LOCK) {
             Store st = Store.get(c);
             if (st.token().isEmpty()) return;
@@ -162,17 +163,17 @@ final class Calls {
         nm.createNotificationChannel(new NotificationChannel(CH_QUIET, "기록할 사람인가요? (다시 알림)", NotificationManager.IMPORTANCE_LOW));
         int id = notifId(phone);
         // [기록]·알림 누르기 = 작은 창(이름·영역 고르고 바로 저장)
-        Intent rec = new Intent(c, AskActivity.class)
+        Intent rec = new Intent(c, Rel.cls(c, AskActivity.class))
                 .putExtra("phone", phone).putExtra("name", name == null ? "" : name)
                 .putExtra("call", call == null ? "" : call.toString())
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent pRec = PendingIntent.getActivity(c, id, rec, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Intent no = new Intent(c, AskReceiver.class).setAction(AskReceiver.NOT_PERSON).putExtra("phone", phone);
+        Intent no = new Intent(c, Rel.cls(c, AskReceiver.class)).setAction(AskReceiver.NOT_PERSON).putExtra("phone", phone);
         PendingIntent pNo = PendingIntent.getBroadcast(c, id, no, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String who = (name == null || name.isEmpty()) ? pretty(phone) : name + " · " + pretty(phone);
         String line = call == null ? "" : " · " + callLine(call);
         Notification.Builder nb = new Notification.Builder(c, silent ? CH_QUIET : CH_ASK)
-                .setSmallIcon(R.drawable.ic_notify)
+                .setSmallIcon(R.drawable.rel_ic_notify)
                 .setColor(0xFFA35A3C)
                 .setContentTitle("다시 연락할 사람인가요?")
                 .setContentText(who + line)
@@ -189,6 +190,7 @@ final class Calls {
 
     // 지워진 알림을 다시 띄운다(답 안 한 번호가 남아 있는 동안). 15분 작업·앱 열 때.
     static void repost(Context c) {
+        if (Rel.quiet(c)) return;
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         if (nm == null) return;
         Set<Integer> showing = new HashSet<>();

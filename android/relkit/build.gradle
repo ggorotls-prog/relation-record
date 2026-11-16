@@ -1,0 +1,20 @@
+// 관계 기록 폰 기능·화면 원본 한 벌(2026-11-16 룡 「기록 앱은 늘 내용물이 똑같다」).
+// 관계 기록 앱(app)과 라이프 RPG가 이 모듈을 같이 쓴다. 라이프 RPG는 빌드 때 이 저장소를 받아 이 폴더를 가져다 쓴다.
+// 화면 글도 여기(src/main/assets/rel/index.html) 한 벌: 고치면 두 앱이 같이 바뀐다(관계 기록 앱은 올리자마자, 라이프 RPG는 빌드 바로 부르기 또는 15분 점검).
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'app.recordkit.rel'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 29
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

@@ -1,5 +1,7 @@
 package app.relrecord;
 
+import app.recordkit.rel.Net;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -179,7 +181,7 @@ final class Updater {
         NotificationManager nm = ctx.getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CH_UPDATE, "앱 업데이트", NotificationManager.IMPORTANCE_DEFAULT));
         Notification n = new Notification.Builder(ctx, CH_UPDATE)
-                .setSmallIcon(R.drawable.ic_notify)
+                .setSmallIcon(app.recordkit.rel.R.drawable.rel_ic_notify)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setContentIntent(tap)

@@ -47,3 +47,8 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+dependencies {
+    // 폰 기능·화면 원본 한 벌(통화 모으기·묻기 창·화면, 라이프 RPG와 같이 씀)
+    implementation project(':relkit')
+}

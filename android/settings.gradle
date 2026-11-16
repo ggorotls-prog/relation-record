@@ -6,3 +6,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = 'relation-record'
 include ':app'
+// 관계 기록 폰 기능·화면 원본(라이프 RPG도 이 폴더를 가져다 쓴다)
+include ':relkit'

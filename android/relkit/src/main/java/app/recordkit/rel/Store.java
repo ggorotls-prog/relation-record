@@ -1,4 +1,4 @@
-package app.relrecord;
+package app.recordkit.rel;
 
 import android.content.Context;
 import android.content.SharedPreferences;

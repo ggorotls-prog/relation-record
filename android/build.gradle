@@ -1,3 +1,5 @@
 plugins {
     id 'com.android.application' version '8.7.3' apply false
+    // 폰 기능·화면 원본 한 벌(relkit, 라이프 RPG와 같이 씀)
+    id 'com.android.library' version '8.7.3' apply false
 }

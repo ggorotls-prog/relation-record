@@ -66,6 +66,11 @@ jobs:
             if grep -q "FATAL EXCEPTION" crash.txt; then exit 1; fi
             adb shell pidof app.relrecord || { echo "앱이 꺼져 있어요"; exit 1; }
             echo "앱이 켜져 있어요"
+            # 화면 글(html)이 원본 모듈(relkit assets/rel/index.html)에서 제대로 열리는지(2026-11-16)
+            adb logcat -d | grep -E "ERR_FILE_NOT_FOUND|android_asset" | head -5 | tee asset.txt || true
+            if grep -q "ERR_FILE_NOT_FOUND" asset.txt; then echo "화면 글을 못 찾았어요"; exit 1; fi
+            adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+            adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | head -15 || true
             adb exec-out screencap -p > shot-light.png || true
             adb shell cmd uimode night yes || true
             adb shell am force-stop app.relrecord

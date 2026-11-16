@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 창·서비스 등록은 각 앱 manifest에서 한다(앱마다 클래스 이름을 지켜야 설정이 안 꺼진다) -->
+<manifest />
