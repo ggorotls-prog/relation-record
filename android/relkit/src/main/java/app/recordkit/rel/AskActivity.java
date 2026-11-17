@@ -204,7 +204,7 @@ public class AskActivity extends Activity {
                     });
                     return;
                 }
-                why = o != null ? o.optString("error", "저장하지 못했어요.") : Net.authFailed(r) ? "앱에서 다시 들어가 주세요." : "저장하지 못했어요. (" + r.status + ")";
+                why = o != null ? o.optString("error", "저장이 안 됐어요. 다시 눌러 주세요.") : Net.authFailed(r) ? "앱에서 다시 들어가 주세요." : "저장이 안 됐어요. 다시 눌러 주세요. 계속 안 되면 관리자에게 말해 주세요.";
             } catch (Exception e) {
                 why = "인터넷이 안 돼요. 알림에 남겨 둘게요.";
             }

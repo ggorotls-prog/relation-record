@@ -217,6 +217,7 @@ public class RelScreen extends Activity {
 
         @JavascriptInterface public void setToken(String t) {
             Store.get(RelScreen.this).setToken(t);
+            if (t != null && !t.isEmpty()) Calls.cancelLoginNotice(getApplicationContext());
             if (t != null && !t.isEmpty()) new Thread(() -> { Calls.run(getApplicationContext()); js("window.onNative && onNative('synced')"); }).start();
         }
 
@@ -231,7 +232,7 @@ public class RelScreen extends Activity {
                     Net.Result r = Net.rpc(fn, json);
                     status = r.status;
                     body = r.body;
-                    if (Net.authFailed(r)) Store.get(RelScreen.this).setToken("");
+                    if (Net.authFailed(r)) Store.get(RelScreen.this).expire();
                 } catch (Exception e) {
                     status = 0;
                     body = "";
@@ -355,6 +356,15 @@ public class RelScreen extends Activity {
 
         // 익시오 열기(녹음 글 복사하러): 폰에 깔린 앱 중 이름에 「익시오」/ixi가 있는 것을 찾아 연다. 못 찾으면 false
         @JavascriptInterface public boolean openIxio() {
+            Intent i = ixio();
+            if (i == null) return false;
+            try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true; } catch (Exception e) { return false; }
+        }
+
+        // 익시오가 깔려 있나(없는 폰에서는 녹음 글 붙이기 창에 「익시오 앱이 있어야 해요」로 알린다)
+        @JavascriptInterface public boolean hasIxio() { return ixio() != null; }
+
+        private Intent ixio() {
             try {
                 android.content.pm.PackageManager pm = getPackageManager();
                 Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
@@ -363,13 +373,11 @@ public class RelScreen extends Activity {
                     String pkg = ri.activityInfo.packageName.toLowerCase();
                     if (label.contains("익시오") || label.contains("ixi") || pkg.contains("ixi")) {
                         Intent i = pm.getLaunchIntentForPackage(ri.activityInfo.packageName);
-                        if (i == null) continue;
-                        startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                        return true;
+                        if (i != null) return i;
                     }
                 }
             } catch (Exception ignored) {}
-            return false;
+            return null;
         }
 
         @JavascriptInterface public void close() { runOnUiThread(RelScreen.this::finish); }

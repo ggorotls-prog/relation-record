@@ -37,9 +37,9 @@ final class Calls {
         if (Rel.quiet(c)) return; // 관계 기록 앱이 같이 깔려 있으면 통화 모으기·묻기는 그 앱만(두 번 올라가지 않게)
         synchronized (LOCK) {
             Store st = Store.get(c);
-            if (st.token().isEmpty()) return;
+            if (st.token().isEmpty()) { loginNotice(c); return; }
             refreshPeople(c);
-            if (st.token().isEmpty()) return; // 로그인이 풀렸으면 멈춤
+            if (st.token().isEmpty()) { loginNotice(c); return; } // 로그인이 풀렸으면 멈춤(알림으로 알린다)
             scan(c);
             send(c);
         }
@@ -50,7 +50,7 @@ final class Calls {
         Store st = Store.get(c);
         try {
             Net.Result r = Net.rpc("rel_phones", new JSONObject().put("p_token", st.token()).toString());
-            if (Net.authFailed(r)) { st.setToken(""); return; }
+            if (Net.authFailed(r)) { st.expire(); return; }
             if (r.status != 200) return;
             JSONArray a = new JSONArray(r.body);
             JSONObject map = new JSONObject();
@@ -118,7 +118,7 @@ final class Calls {
         if (a.length() == 0) return true;
         try {
             Net.Result r = Net.rpc("rel_add_calls", new JSONObject().put("p_token", st.token()).put("p_calls", a).toString());
-            if (Net.authFailed(r)) { st.setToken(""); return false; }
+            if (Net.authFailed(r)) { st.expire(); return false; }
             if (r.status != 200 || !new JSONObject(r.body).optBoolean("ok")) return false;
             Set<String> keys = new HashSet<>();
             for (int i = 0; i < a.length(); i++) keys.add(a.getJSONObject(i).optString("key"));
@@ -158,9 +158,7 @@ final class Calls {
     static void ask(Context c, String phone, String name, JSONObject call, boolean silent) {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         if (nm == null) return;
-        nm.createNotificationChannel(new NotificationChannel(CH_ASK, "기록할 사람인가요?", NotificationManager.IMPORTANCE_HIGH));
-        // 지워진 알림을 다시 띄울 때는 소리·진동 없는 채널로
-        nm.createNotificationChannel(new NotificationChannel(CH_QUIET, "기록할 사람인가요? (다시 알림)", NotificationManager.IMPORTANCE_LOW));
+        channels(nm);
         int id = notifId(phone);
         // [기록]·알림 누르기 = 작은 창(이름·영역 고르고 바로 저장)
         Intent rec = new Intent(c, Rel.cls(c, AskActivity.class))
@@ -186,6 +184,44 @@ final class Calls {
                 .setCategory(Notification.CATEGORY_REMINDER);
         Notification n = nb.build();
         try { nm.notify(id, n); } catch (SecurityException ignored) {}
+    }
+
+    private static void channels(NotificationManager nm) {
+        nm.createNotificationChannel(new NotificationChannel(CH_ASK, "기록할 사람인가요?", NotificationManager.IMPORTANCE_HIGH));
+        // 지워진 알림을 다시 띄울 때는 소리·진동 없는 채널로
+        nm.createNotificationChannel(new NotificationChannel(CH_QUIET, "기록할 사람인가요? (다시 알림)", NotificationManager.IMPORTANCE_LOW));
+    }
+
+    private static final int LOGIN_NOTICE_ID = 999;
+
+    // 로그인이 풀려 통화 모으기가 멈췄을 때: 알림 하나(누르면 앱이 열림). 하루 한 번 넘게 띄우지 않는다.
+    // 「나가기」로 직접 나간 것은 알리지 않는다(expired가 아님). 앱을 보고 있을 때도 안 띄운다(화면이 로그인으로 감).
+    static void loginNotice(Context c) {
+        Store st = Store.get(c);
+        if (!st.expired() || RelScreen.visible) return;
+        long now = System.currentTimeMillis();
+        if (now - st.loginNoticeAt() < 24L * 3600 * 1000) return;
+        NotificationManager nm = c.getSystemService(NotificationManager.class);
+        Intent open = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
+        if (nm == null || open == null) return;
+        channels(nm);
+        PendingIntent pi = PendingIntent.getActivity(c, LOGIN_NOTICE_ID, open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Notification n = new Notification.Builder(c, CH_ASK)
+                .setSmallIcon(R.drawable.rel_ic_notify)
+                .setColor(0xFFA35A3C)
+                .setContentTitle("관계 기록 로그인이 풀렸어요")
+                .setContentText("눌러서 다시 로그인하세요.")
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .build();
+        try { nm.notify(LOGIN_NOTICE_ID, n); st.setLoginNoticeAt(now); } catch (SecurityException ignored) {}
+    }
+
+    // 다시 들어가면 「로그인이 풀렸어요」 알림을 닫는다
+    static void cancelLoginNotice(Context c) {
+        NotificationManager nm = c.getSystemService(NotificationManager.class);
+        if (nm != null) nm.cancel(LOGIN_NOTICE_ID);
     }
 
     // 지워진 알림을 다시 띄운다(답 안 한 번호가 남아 있는 동안). 15분 작업·앱 열 때.

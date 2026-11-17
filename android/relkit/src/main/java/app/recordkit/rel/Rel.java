@@ -68,6 +68,7 @@ public final class Rel {
     public static void useToken(Context c, String t) {
         if (t == null || t.isEmpty()) return;
         Store.get(c).setToken(t);
+        Calls.cancelLoginNotice(c);
         new Thread(() -> Calls.run(c.getApplicationContext())).start();
     }
 

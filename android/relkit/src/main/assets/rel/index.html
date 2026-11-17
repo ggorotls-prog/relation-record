@@ -84,6 +84,7 @@ textarea{resize:none;min-height:72px}
   <div class="field"><label>비밀번호</label><input id="l-pw" type="password" autocomplete="current-password"></div>
   <div class="err" id="l-err"></div>
   <button class="btn full" id="l-go">들어가기</button>
+  <p class="muted" style="margin:14px 2px 0">비밀번호를 잊었으면 초대한 사람(관리자)에게 말해 주세요. 새 비밀번호를 정해 줍니다.</p>
 </div>
 
 <!-- 첫 화면 -->
@@ -127,6 +128,7 @@ textarea{resize:none;min-height:72px}
     <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
   <div class="err" id="f-err"></div>
   <button class="btn full" id="f-save">저장</button>
+  <button class="btn ghost full" id="f-merge" style="margin-top:10px;display:none">다른 사람과 합치기</button>
   <button class="btn ghost full" id="f-del" style="margin-top:10px;display:none">이 사람 지우기</button>
 </div>
 
@@ -136,6 +138,11 @@ textarea{resize:none;min-height:72px}
   <div class="sec">제외 번호<small>여기 있는 번호와 통화하면 묻지도 기록하지도 않아요. 알림에서 「아님」을 누르거나 여기서 번호를 더해요. 폰 안에만 있어요.</small></div>
   <div style="display:flex;gap:8px;margin-bottom:10px"><input id="x-add" inputmode="tel" placeholder="번호 더하기"><button class="btn" id="x-go" style="flex:0 0 auto;min-width:96px;white-space:nowrap;font-size:16px">더하기</button></div>
   <div class="card" id="x-list"></div>
+  <div class="sec">나만 보는 칸<small>사람을 나눌 내 칸이에요(예: 동호회). 「개인」은 늘 있어요.</small></div>
+  <div style="display:flex;gap:8px;margin-bottom:10px"><input id="a-add" maxlength="20" placeholder="새 칸 이름"><button class="btn" id="a-go" style="flex:0 0 auto;min-width:96px;white-space:nowrap;font-size:16px">더하기</button></div>
+  <div class="card" id="a-list"></div>
+  <div class="sec">켜야 할 것</div>
+  <div class="card"><div class="row tap" onclick="showGuide()"><div class="grow"><div class="t">켜야 할 것 다시 보기</div><div class="s">통화 기록·연락처·알림 같은 권한과 왜 필요한지</div></div><div class="s">›</div></div></div>
   <div class="sec">계정</div>
   <div class="card"><div class="row"><div class="grow"><div class="t" id="s-me"></div><div class="s">업무 기록에서 내가 보는 영역이 여기서도 그대로 보여요</div></div><button class="btn ghost small" id="s-out">나가기</button></div></div>
   <p class="muted" style="text-align:center;margin-top:20px" id="s-ver"></p>
@@ -165,12 +172,15 @@ window.__rpc = (id, status, body) => {
   let data = null; try { data = JSON.parse(body); } catch (e) {}
   if (f) f({ status, data });
 };
+const FAIL = '저장이 안 됐어요. 다시 눌러 주세요. 계속 안 되면 관리자에게 말해 주세요.';
 async function rpc(fn, args) {
   const r = await call(fn, Object.assign({ p_token: N.token() }, args || {}));
   if (r.status === 0) throw new Error('인터넷이 안 돼요. 잠시 뒤 다시 해 주세요.');
   if (r.status >= 400) {
     if (r.data && r.data.message === 'auth') { N.setToken(''); show('login'); throw new Error('다시 들어가 주세요.'); }
-    throw new Error('저장하지 못했어요. (' + ((r.data && r.data.message) || r.status) + ')');
+    // 서버 영어 오류는 보여 주지 않는다. 함수가 아직 없으면(PGRST202) 준비 중으로 안내
+    const e = new Error(r.data && r.data.code === 'PGRST202' ? '이 기능은 아직 준비 중이에요. 관리자에게 말해 주세요.' : FAIL);
+    e.server = true; throw e;
   }
   if (r.data && r.data.error) throw new Error(r.data.error);
   return r.data;
@@ -212,6 +222,11 @@ function ask(title, note, yes) {
       <div style="display:flex;gap:8px"><button class="btn ghost" style="flex:1" onclick="askDone(false)">아니요</button><button class="btn" style="flex:2" onclick="askDone(true)">${esc(yes || '네')}</button></div>`);
   });
 }
+// 알리기만 하는 창(버튼 하나)
+function info(title, note) {
+  if (askDone) askDone(false);
+  sheet(`<h3>${esc(title)}</h3><div class="muted" style="margin:0 4px 16px">${esc(note)}</div><button class="btn full" onclick="closeSheet()">알겠어요</button>`);
+}
 
 // ---- 글자 꼴 ----
 function pretty(d) {
@@ -243,9 +258,10 @@ async function load() {
   try {
     D = await rpc('rel_sync');
     if (N.setAreas) N.setAreas(JSON.stringify(D.me.areas || [])); // 통화 끝 작은 창에서 영역 고르기용
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.server ? '불러오지 못했어요. 아래로 당겨 다시 해 주세요. 계속 안 되면 관리자에게 말해 주세요.' : e.message); }
   render();
   hidePtr();
+  maybeGuide();
 }
 
 // ---- 아래로 당기면 새로고침(첫 화면·사람 화면, 맨 위에서만) ----
@@ -326,6 +342,28 @@ window.setTab = function (a) { tab = a; renderHome(); };
 $('#q').oninput = renderHome;
 $('#add-person').onclick = () => openForm(null, '', '');
 $('#go-settings').onclick = () => { renderSettings(); show('settings'); };
+
+// ---- 켜야 할 것: 첫 로그인 뒤 한 번만 저절로, 그 뒤는 설정에서 ----
+// 이 앱이 실제로 쓰는 권한만(매니페스트): 통화 기록·전화 상태·연락처·알림·다른 앱 위에 표시·배터리 제한 없음
+function maybeGuide() {
+  let seen = false; try { seen = localStorage.relGuide === '1'; } catch (e) {}
+  if (seen || !N.token() || stack[stack.length - 1] !== 'home' || $('#sheet').classList.contains('on')) return;
+  try { localStorage.relGuide = '1'; } catch (e) {}
+  showGuide();
+}
+window.showGuide = function () {
+  let p = {}; try { p = JSON.parse(N.perms()); } catch (e) {}
+  const item = (on, name, why, btn) => `<div class="row" style="padding:12px 4px"><div class="grow"><div class="t">${on ? '✓ ' : ''}${name}</div><div class="s">${why}</div></div>${on ? '<span class="muted">켜짐</span>' : btn}</div>`;
+  const perm = '<button class="btn small" onclick="N.askPerms()">켜기</button>';
+  sheet(`<h3 id="guide">켜야 할 것</h3><div class="muted" style="margin:0 4px 8px">한 번만 켜 두면 돼요. 나중에 ⚙ 설정에서 다시 볼 수 있어요.</div>` +
+    item(p.callLog && p.phoneState, '통화 기록 · 전화', '통화가 끝났을 때 누구와 몇 분 통화했는지 읽어요. 녹음·내용은 안 읽어요.', perm) +
+    item(p.contacts, '연락처', '폰 연락처 이름을 그대로 써요. 연락처는 폰 밖으로 안 보내요.', perm) +
+    item(p.notif, '알림', '처음 보는 번호와 통화하면 「다시 연락할 사람인가요?」로 물어요.', perm) +
+    item(p.overlay !== false, '다른 앱 위에 표시', '통화가 끝나면 작은 창으로 바로 물어요.', '<button class="btn small" onclick="N.openOverlay()">켜기</button>') +
+    item(p.battery, '배터리 「제한 없음」', '앱이 잠들어 통화를 놓치지 않게 해요.', '<button class="btn small" onclick="N.openBattery()">켜기</button>') +
+    `<div class="muted" style="margin:10px 4px">켜기를 눌러도 안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</div>
+    <div style="display:flex;gap:8px"><button class="btn ghost" style="flex:1" onclick="N.openAppSettings()">앱 정보</button><button class="btn" style="flex:2" onclick="closeSheet();renderHome()">다 했어요</button></div>`);
+};
 
 window.notPerson = function (phone) { N.notPerson(phone); toast('제외했어요. 다시 안 물어요'); renderHome(); };
 
@@ -440,17 +478,18 @@ $('#m-save').onclick = async () => {
 // 통화에 녹음 글 붙이기: 익시오 녹음 글(스크립트)을 복사(2026-11-14 룡, 일레븐랩스는 돈 벌면 나중에) → 여기서 붙여넣기 → 저장하면 업무 기록 「노트」로 들어간다
 window.openPaste = function (id) {
   const r = D.records.find((x) => x.id === id); if (!r) return;
-  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">${when(r.at)} 통화 · 익시오에서 이 통화의 녹음 글(스크립트)을 복사하고 돌아오면 저절로 들어가요. 저장하면 이 통화에 붙고, 나만 보는 노트로도 들어가요.</div>
+  const ix = N.hasIxio ? N.hasIxio() : true; // 익시오가 없는 폰: 한 줄로 알리고 「익시오 열기」는 숨긴다
+  sheet(`<h3>녹음 글 붙이기</h3><div class="muted" style="margin:0 4px 10px">${when(r.at)} 통화 · ${ix ? '익시오에서 이 통화의 녹음 글(스크립트)을 복사하고 돌아오면 저절로 들어가요.' : '이 기능은 익시오 앱이 있어야 해요.'} 저장하면 이 통화에 붙고, 나만 보는 노트로도 들어가요.</div>
     <textarea id="t-body" style="min-height:140px;max-height:38vh;width:100%" placeholder="여기에 통화 글"></textarea>
     <div class="err" id="t-err"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn ghost" style="flex:1" onclick="goIxio()">익시오 열기</button>
+      ${ix ? '<button class="btn ghost" style="flex:1" onclick="goIxio()">익시오 열기</button>' : ''}
       <button class="btn ghost" style="flex:1" onclick="pasteClip()">📋 붙여넣기</button>
       <button class="btn" style="flex:1.4" id="t-save" onclick="saveTranscript('${id}')">저장</button></div>`);
   // 단계 줄이기(2026-11-14 룡): 방금(2분 안) 복사한 글이 있으면 바로 넣고, 없으면 익시오를 바로 연다 → 복사하고 돌아오면 저절로 붙음
   const ct = N.clipTime ? N.clipTime() : 0;
   if (ct && Date.now() - ct < 120000) pasteClip(true);
-  else goIxio();
+  else if (ix) goIxio();
 };
 let pasteAfter = 0; // 이 시각 뒤에 복사한 글이면 돌아왔을 때 저절로 넣는다
 window.goIxio = function () {
@@ -505,6 +544,7 @@ function openForm(p, phone, name) {
   $('#f-phones').value = p ? p.phones.map(pretty).join('\n') : (phone ? pretty(phone) : '');
   $('#f-err').textContent = '';
   $('#f-del').style.display = p && p.mine ? 'block' : 'none';
+  $('#f-merge').style.display = p && p.mine && D.people.length > 1 ? 'block' : 'none';
   // 알림에서 왔으면: 이미 있는 사람에게 이 번호를 붙일 수도
   $('#f-attach').innerHTML = (!p && phone && D.people.length
     ? `<button class="btn ghost full small" style="margin-bottom:10px" onclick="attachPick()">이미 등록한 사람의 다른 번호예요</button>` : '')
@@ -575,6 +615,30 @@ $('#f-del').onclick = async () => {
   try { await rpc('rel_delete_person', { p_id: form.id }); toast('지웠어요'); await load(); show('home'); renderHome(); }
   catch (e) { $('#f-err').textContent = e.message; }
 };
+// 같은 사람이 두 줄일 때 합치기: 고른 사람의 통화·메모·선물·번호를 이 사람에게 옮기고 고른 사람 줄은 지운다
+$('#f-merge').onclick = () => {
+  sheet(`<h3>누구와 합칠까요?</h3><div class="muted" style="margin:0 4px 10px">고른 사람의 통화·메모·번호가 「${esc($('#f-name').value || '')}」에게 옮겨지고, 고른 사람은 목록에서 빠져요.</div>
+    <input id="mg-q" placeholder="이름이나 번호로 찾기" inputmode="search" style="margin-bottom:6px"><div id="mg-list"></div>`);
+  const list = () => {
+    const q = $('#mg-q').value.trim(), qd = q.replace(/\D/g, '');
+    const ps = D.people.filter((p) => p.id !== form.id && p.mine)
+      .filter((p) => !q || p.name.includes(q) || (qd.length >= 3 && p.phones.some((x) => x.includes(qd))));
+    $('#mg-list').innerHTML = ps.length ? ps.slice(0, 50).map((p) =>
+      `<button class="opt" onclick="mergeWith('${p.id}')"><b>${esc(p.name)}</b> <span class="muted">${p.phones.map(pretty).join(' · ')}</span></button>`).join('')
+      : '<div class="empty">찾는 사람이 없어요</div>';
+  };
+  $('#mg-q').oninput = list; list();
+};
+window.mergeWith = async function (id) {
+  const keep = personOf(form.id), drop = personOf(id); if (!keep || !drop) return;
+  if (!(await ask(`「${drop.name}」 기록을 「${keep.name}」에게 합칠까요?`, `「${drop.name}」의 통화·메모·번호가 「${keep.name}」에게 옮겨지고, 「${drop.name}」은 지워져요. 되돌릴 수 없어요.`, '합치기'))) return;
+  try {
+    await rpc('rel_merge_people', { p_keep: keep.id, p_drop: drop.id });
+    N.syncNow(); // 폰에 둔 번호 → 사람 목록도 새로(지운 사람 번호로 온 통화가 남는 사람에게 가게)
+    toast('합쳤어요');
+    await load(); cur = keep.id; stack.length = 0; stack.push('home'); show('person'); renderPerson();
+  } catch (e) { $('#f-err').textContent = e.message; }
+};
 
 // 알림 [기록]에서 열림
 window.openRegister = function (phone, name) {
@@ -593,7 +657,40 @@ function renderSettings() {
     : '<div class="empty">아직 없어요. 알림에서 「아님」을 누르면 여기 들어와요.</div>';
   $('#s-me').textContent = D.me.name || '';
   $('#s-ver').textContent = '버전 ' + N.version();
+  const mine = (D.me && D.me.private) || [];
+  $('#a-list').innerHTML = mine.length ? mine.map((a, i) => `<div class="row"><div class="grow">${chip(a)}</div>
+      <button class="btn ghost small" onclick="renameArea(${i})">이름 바꾸기</button><button class="btn ghost small" onclick="delArea(${i})">빼기</button></div>`).join('')
+    : '<div class="empty">아직 없어요. 위에 이름을 적고 「더하기」를 눌러요.</div>';
 }
+// ---- 나만 보는 칸: 더하기·이름 바꾸기·빼기 ----
+async function areaDone(msg) { toast(msg); await load(); renderSettings(); }
+$('#a-go').onclick = async () => {
+  const a = $('#a-add').value.trim();
+  if (!a) { toast('칸 이름을 적어 주세요'); return; }
+  $('#a-go').disabled = true;
+  try { await rpc('rel_add_my_area', { p_area: a }); $('#a-add').value = ''; await areaDone('칸을 더했어요'); } catch (e) { toast(e.message); }
+  $('#a-go').disabled = false;
+};
+window.renameArea = function (i) {
+  const a = ((D.me && D.me.private) || [])[i]; if (!a) return;
+  sheet(`<h3>칸 이름 바꾸기</h3><div class="muted" style="margin:0 4px 10px">이 칸에 든 사람과 기록도 새 이름으로 바뀌어요.</div>
+    <input id="ar-new" maxlength="20" value="${esc(a)}"><div class="err" id="ar-err"></div>
+    <button class="btn full" id="ar-save">바꾸기</button>`);
+  $('#ar-save').onclick = async () => {
+    const n = $('#ar-new').value.trim();
+    if (!n) { $('#ar-err').textContent = '칸 이름을 적어 주세요.'; return; }
+    $('#ar-save').disabled = true;
+    try { await rpc('rel_rename_my_area', { p_old: a, p_new: n }); closeSheet(); await areaDone('이름을 바꿨어요'); }
+    catch (e) { $('#ar-err').textContent = e.message; $('#ar-save').disabled = false; }
+  };
+};
+window.delArea = async function (i) {
+  const a = ((D.me && D.me.private) || [])[i]; if (!a) return;
+  const n = D.people.filter((p) => p.areas.includes(a)).length;
+  if (n) { info(`「${a}」 칸에 ${n}명이 있어요`, '그 사람들을 사람 화면 「고치기」에서 다른 칸으로 옮긴 뒤 빼 주세요.'); return; }
+  if (!(await ask(`「${a}」 칸을 뺄까요?`, '', '빼기'))) return;
+  try { await rpc('rel_delete_my_area', { p_area: a }); await areaDone('칸을 뺐어요'); } catch (e) { toast(e.message); }
+};
 window.unex = function (p) { N.unexclude(p); renderSettings(); };
 $('#x-go').onclick = () => { const v = $('#x-add').value; if (N.norm(v).length < 7) { toast('번호를 적어 주세요'); return; } N.exclude(v); $('#x-add').value = ''; renderSettings(); toast('제외했어요'); };
 $('#s-out').onclick = async () => {
@@ -634,6 +731,7 @@ window.onNative = function (what, a, b) {
     return;
   }
   if (!N.token()) { if (stack[0] !== 'login') show('login'); return; }
+  if ((what === 'perms' || what === 'resume') && $('#guide') && $('#sheet').classList.contains('on')) showGuide(); // 켜고 돌아오면 ✓로
   if (what === 'resume') pasteOnReturn();
   if (what === 'synced' || what === 'resume') load();
   else render();

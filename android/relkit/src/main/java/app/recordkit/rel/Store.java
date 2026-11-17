@@ -31,8 +31,17 @@ final class Store {
         // 처음 로그인하면 지금부터의 통화만 본다(지난 통화 기록을 한꺼번에 묻지 않게)
         if (t != null && !t.isEmpty() && p.getLong("lastTs", 0) == 0) e.putLong("lastTs", System.currentTimeMillis());
         if (t == null || t.isEmpty()) e.remove("people").remove("outbox");
+        else e.remove("expired");
         e.apply();
     }
+
+    // 로그인이 풀림(서버가 열쇠를 거절). 「나가기」로 나간 것과 가르려고 따로 적는다. 다시 들어가면 지워진다
+    synchronized void expire() { setToken(""); p.edit().putBoolean("expired", true).apply(); }
+    boolean expired() { return p.getBoolean("expired", false); }
+
+    // 「로그인이 풀렸어요」 알림을 마지막으로 띄운 때(하루 한 번만)
+    long loginNoticeAt() { return p.getLong("loginNoticeAt", 0); }
+    void setLoginNoticeAt(long t) { p.edit().putLong("loginNoticeAt", t).apply(); }
 
     long lastTs() { return p.getLong("lastTs", 0); }
     void setLastTs(long t) { p.edit().putLong("lastTs", t).apply(); }
