@@ -390,7 +390,11 @@ function renderPerson() {
   ph += prow('🏠', '주소', pf.address ? esc(pf.address) : '<span class="muted">아직 없어요</span>');
   ph += prow('🎁', '선물', gifts.length ? [lastGive && `준 것: ${esc(lastGive.body)} (${ago(lastGive.at)})`, lastGet && `받은 것: ${esc(lastGet.body)} (${ago(lastGet.at)})`].filter(Boolean).join('<br>') + (gifts.length > 2 ? `<div class="s">모두 ${gifts.length}번 · 아래 기록에</div>` : '') : '<span class="muted">아직 없어요</span>');
   if (pf.other) ph += prow('📝', '그 밖에', esc(pf.other));
+  // 먼저 한 행동(2026-11-18 룡): 일이 생겼을 때 시키지 않아도 먼저 한 행동. 줄을 모아 보고 은사를 찾는다. 해석은 적지 않는다
+  const acts = recs.filter((r) => r.kind === 'act');
+  ph += prow('👀', '먼저 한 행동', acts.length ? acts.slice(0, 5).map(actLine).join('<br>') + (acts.length > 5 ? `<div class="s">모두 ${acts.length}번 · 아래 기록에</div>` : '') : '<span class="muted">아직 없어요</span>');
   ph += `<div class="row" style="gap:8px"><button class="btn ghost small" style="flex:1" onclick="openProfile()">프로필 고치기</button><button class="btn ghost small" style="flex:1" onclick="openGift()">🎁 선물 기록</button></div>`;
+  ph += `<button class="btn ghost small" style="width:100%;margin-top:8px" onclick="openAct()">👀 먼저 한 행동</button>`;
   $('#p-profile').innerHTML = ph;
   $('#p-records').innerHTML = recs.length ? recs.map((r) => {
     const by = r.mine ? '' : ` · ${esc(r.by)}`;
@@ -401,6 +405,8 @@ function renderPerson() {
         (r.mine && r.dir !== 'missed' ? `<button class="paste${r.note ? ' has' : ''}" onclick="openPaste('${r.id}')">${r.note ? '📋 글 넣음 · 다시 붙이기' : '📋 녹음 글 붙이기'}</button>` : '') + `</div>`;
     if (r.kind === 'gift')
       return `<div class="rec"><div class="h"><span class="dir">🎁 ${r.dir === 'get' ? '받은 선물' : '준 선물'}</span>${chip(r.area)}${act}</div><div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at).split(') ')[0]})</div></div>`;
+    if (r.kind === 'act')
+      return `<div class="rec"><div class="h"><span class="dir">👀 먼저 한 행동</span>${chip(r.area)}${act}</div>${r.sit ? `<div class="when muted">${esc(r.sit)}</div>` : ''}<div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at).split(') ')[0]})</div></div>`;
     return `<div class="rec"><div class="h"><span class="dir">📝 메모</span>${chip(r.area)}${act}</div><div class="body">${esc(r.body)}</div><div class="when muted">${when(r.at)}${by}</div></div>`;
   }).join('') : '<div class="empty">아직 기록이 없어요</div>';
 }
@@ -459,6 +465,26 @@ window.saveGift = async function () {
   $('#g-save').disabled = true;
   try { await rpc('rel_add_gift', { p_person: cur, p_dir: giftDir, p_date: $('#g-date').value || null, p_body: body }); closeSheet(); toast('저장했어요'); await load(); }
   catch (e) { $('#g-err').textContent = e.message; $('#g-save').disabled = false; }
+};
+// 먼저 한 행동: 날짜 · 상황(비워도 됨) · 먼저 한 행동
+function actLine(r) { return `${esc(r.body)} <span class="muted">(${r.sit ? esc(r.sit) + ' · ' : ''}${ago(r.at)})</span>`; }
+window.openAct = function () {
+  const p = personOf(cur); if (!p) return;
+  const today = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10);
+  sheet(`<h3>👀 ${esc(p.name)} · 먼저 한 행동</h3>
+    <div class="muted" style="margin:0 4px 10px">일이 생겼을 때 시키지 않아도 먼저 한 행동을 본 그대로 적어요.</div>
+    <div class="field"><label>날짜</label><input type="date" id="a-date" value="${today}"></div>
+    <div class="field"><label>상황 <span class="muted" style="font-weight:400">(비워도 돼요)</span></label><input id="a-sit" maxlength="200" placeholder="예: 누가 짜장면을 엎었다"></div>
+    <div class="field"><label>먼저 한 행동</label><input id="a-body" maxlength="500" placeholder="예: 걸레를 가지러 갔다"></div>
+    <div class="err" id="a-err"></div>
+    <button class="btn full" id="a-save" onclick="saveAct()">저장</button>`);
+};
+window.saveAct = async function () {
+  const body = $('#a-body').value.trim();
+  if (!body) { $('#a-err').textContent = '먼저 한 행동을 적어 주세요.'; return; }
+  $('#a-save').disabled = true;
+  try { await rpc('rel_add_act', { p_person: cur, p_date: $('#a-date').value || null, p_situation: $('#a-sit').value.trim(), p_body: body }); closeSheet(); toast('저장했어요'); await load(); }
+  catch (e) { $('#a-err').textContent = e.message; $('#a-save').disabled = false; }
 };
 function myAreas() { return (D.me.areas || []).concat(['개인']); }
 $('#p-edit').onclick = () => { const p = personOf(cur); if (p) openForm(p, '', ''); };
@@ -521,7 +547,7 @@ window.recMenu = function (id) {
   const r = D.records.find((x) => x.id === id); if (!r) return;
   const p = personOf(r.person_id);
   const areas = myAreas().filter((a) => a === '개인' || (p && p.areas.includes(a)));
-  sheet(`<h3>${r.kind === 'call' ? '이 통화' : r.kind === 'gift' ? '이 선물' : '이 메모'}</h3><div class="muted" style="margin:0 4px 8px">영역 바꾸기</div>` +
+  sheet(`<h3>${r.kind === 'call' ? '이 통화' : r.kind === 'gift' ? '이 선물' : r.kind === 'act' ? '이 행동' : '이 메모'}</h3><div class="muted" style="margin:0 4px 8px">영역 바꾸기</div>` +
     areas.map((a) => `<button class="opt" onclick="setArea('${id}','${a}')">${chip(a)} ${a === r.area ? '✓' : ''}</button>`).join('') +
     `<button class="opt" style="color:#b3261e" onclick="delRec('${id}')">지우기</button>`);
 };
