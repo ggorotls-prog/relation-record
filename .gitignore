@@ -4,3 +4,8 @@ android/app/build
 android/local.properties
 *.p12
 *.pw
+# 비밀 파일 (2026-11-19 보안 점검)
+.env
+.env.*
+*.jks
+*.keystore
