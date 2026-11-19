@@ -211,6 +211,15 @@ public class RelScreen extends Activity {
 
     private boolean granted(String p) { return checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED; }
 
+    // 이 앱이 그 권한을 쓴다고 적어 두었나(매니페스트). 안 적은 권한은 물어도 안 켜진다
+    private boolean declared(String p) {
+        try {
+            String[] all = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_PERMISSIONS).requestedPermissions;
+            if (all != null) for (String x : all) if (p.equals(x)) return true;
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     // ---- 화면이 부르는 것 ----
     private class Bridge {
         @JavascriptInterface public String token() { return Store.get(RelScreen.this).token(); }
@@ -261,6 +270,22 @@ public class RelScreen extends Activity {
             new Thread(() -> { Calls.send(app); js("window.onNative && onNative('synced')"); }).start();
         }
 
+        // ---- 이름 맞추기(폰 연락처 ↔ 관계 기록) ----
+        // 앱에서 방금 이름을 저장한 사람: 연락처도 이 이름으로. 화면이 이어서 syncNow()를 부른다
+        @JavascriptInterface public void nameSaved(String id) { if (id != null && !id.isEmpty()) Store.get(RelScreen.this).addNamePush(id); }
+
+        // 이름이 서로 달라 물어볼 사람들 [{id, s 관계 기록 이름, c 연락처 이름}]
+        @JavascriptInterface public String nameAsks() { return Store.get(RelScreen.this).nameAsks(); }
+
+        // 고른 쪽으로 맞춘다: which = "s"(관계 기록 이름) / "c"(연락처 이름). 화면이 이어서 syncNow()를 부른다
+        @JavascriptInterface public void namePick(String id, String which) {
+            if (id == null || id.isEmpty() || !("s".equals(which) || "c".equals(which))) return;
+            Store.get(RelScreen.this).namePick(id, which);
+        }
+
+        // 이름을 바꾼 기록(최근 30줄)
+        @JavascriptInterface public String nameLogs() { return Store.get(RelScreen.this).nameLogs(); }
+
         @JavascriptInterface public void setAreas(String json) { Store.get(RelScreen.this).setAreas(json); }
 
         // 「다른 앱 위에 표시」: 통화 끝나면 작은 창으로 묻기
@@ -293,7 +318,7 @@ public class RelScreen extends Activity {
                         .put("callLog", granted(Manifest.permission.READ_CALL_LOG))
                         .put("phoneState", granted(Manifest.permission.READ_PHONE_STATE))
                         .put("notif", android.os.Build.VERSION.SDK_INT < 33 || granted("android.permission.POST_NOTIFICATIONS"))
-                        .put("contacts", granted(Manifest.permission.READ_CONTACTS))
+                        .put("contacts", granted(Manifest.permission.READ_CONTACTS) && (!declared(Manifest.permission.WRITE_CONTACTS) || granted(Manifest.permission.WRITE_CONTACTS)))
                         .put("overlay", Settings.canDrawOverlays(RelScreen.this))
                         .put("battery", pm == null || pm.isIgnoringBatteryOptimizations(getPackageName()))
                         .toString();
@@ -308,6 +333,7 @@ public class RelScreen extends Activity {
                 need.add(Manifest.permission.READ_CALL_LOG);
                 need.add(Manifest.permission.READ_PHONE_STATE);
                 need.add(Manifest.permission.READ_CONTACTS); // 알림·등록 칸에 폰 연락처 이름을 그대로 쓰려고(번호는 폰 밖으로 안 나감)
+                if (declared(Manifest.permission.WRITE_CONTACTS)) need.add(Manifest.permission.WRITE_CONTACTS); // 등록한 사람의 이름을 폰 연락처와 서로 맞추려고(Names)
                 if (android.os.Build.VERSION.SDK_INT >= 33) need.add("android.permission.POST_NOTIFICATIONS");
                 requestPermissions(need.toArray(new String[0]), 1);
             });

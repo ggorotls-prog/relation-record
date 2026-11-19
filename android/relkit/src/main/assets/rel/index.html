@@ -122,7 +122,7 @@ textarea{resize:none;min-height:72px}
 <div class="view" id="v-form">
   <div class="top"><button class="icon back">←</button><h2 id="f-title">사람 등록</h2></div>
   <div id="f-attach"></div>
-  <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="폰 연락처 이름 그대로"></div>
+  <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="이름(소속) · 폰 연락처에도 같은 이름으로 들어가요"></div>
   <div class="field"><label>번호</label><textarea id="f-phones" rows="1" style="min-height:0;height:auto;overflow:hidden" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
   <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 무슨 일로 연락하는 사람인가요? 일이 아니거나 모르겠으면 「개인」</span></label><div id="f-areas"></div>
     <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
@@ -159,7 +159,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'
 const N = window.Native || {  // 브라우저에서 화면만 볼 때
   token: () => localStorage.t || '', setToken: (t) => { localStorage.t = t; }, version: () => 'web', rpc: () => {}, pending: () => '[]',
   answered() {}, notPerson() {}, excluded: () => '[]', exclude() {}, unexclude() {}, norm: (p) => String(p).replace(/\D/g, ''),
-  perms: () => '{"callLog":true,"phoneState":true,"notif":true,"battery":true}', askPerms() {}, importContacts() {}, openBattery() {}, openAppSettings() {}, syncNow() {}, close() {},
+  perms: () => '{"callLog":true,"phoneState":true,"notif":true,"battery":true,"contacts":true}', askPerms() {}, importContacts() {}, openBattery() {}, openAppSettings() {}, syncNow() {}, close() {},
 };
 
 // ---- 서버 ----
@@ -299,9 +299,13 @@ function renderHome() {
   let p = {}; try { p = JSON.parse(N.perms()); } catch (e) {}
   let h = '';
   if (!p.callLog || !p.phoneState || !p.notif || !p.contacts)
-    h += `<div class="warn"><div class="grow">통화 기록·연락처·알림 권한을 켜 주세요. 통화가 쌓이고, 이름은 폰 연락처 이름 그대로 들어가요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
+    h += `<div class="warn"><div class="grow">통화 기록·연락처·알림 권한을 켜 주세요. 통화가 쌓이고, 이름이 폰 연락처와 서로 맞춰져요.<br><span style="font-size:12px">안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</span></div><div style="display:flex;flex-direction:column;gap:6px"><button class="btn small" onclick="N.askPerms()">켜기</button><button class="btn ghost small" onclick="N.openAppSettings()">앱 정보</button></div></div>`;
   if (p.overlay === false) h += `<div class="warn"><div class="grow">통화가 끝나면 작은 창으로 바로 묻게, 「다른 앱 위에 표시」를 켜 주세요.</div><button class="btn small" onclick="N.openOverlay()">켜기</button></div>`;
   if (!p.battery) h += `<div class="warn"><div class="grow">배터리 「제한 없음」을 켜면 통화를 놓치지 않아요</div><button class="btn small" onclick="N.openBattery()">켜기</button></div>`;
+  // 이름이 서로 다른 사람(폰 연락처 ↔ 관계 기록): 고른 쪽으로 맞춘다
+  let na = []; try { na = JSON.parse(N.nameAsks ? N.nameAsks() : '[]'); } catch (e) {}
+  na = na.filter((x) => !namePicked[x.id]);
+  if (na.length) h += `<div class="warn"><div class="grow">폰 연락처와 이름이 서로 다른 사람이 ${na.length}명 있어요. 어느 이름으로 맞출지 골라 주세요.</div><button class="btn small" onclick="openNameAsks()">맞추기</button></div>`;
   $('#setup').innerHTML = h;
 
   // 답 안 한 번호
@@ -357,12 +361,31 @@ window.showGuide = function () {
   const perm = '<button class="btn small" onclick="N.askPerms()">켜기</button>';
   sheet(`<h3 id="guide">켜야 할 것</h3><div class="muted" style="margin:0 4px 8px">한 번만 켜 두면 돼요. 나중에 ⚙ 설정에서 다시 볼 수 있어요.</div>` +
     item(p.callLog && p.phoneState, '통화 기록 · 전화', '통화가 끝났을 때 누구와 몇 분 통화했는지 읽어요. 녹음·내용은 안 읽어요.', perm) +
-    item(p.contacts, '연락처', '폰 연락처 이름을 그대로 써요. 연락처는 폰 밖으로 안 보내요.', perm) +
+    item(p.contacts, '연락처', '등록한 사람의 이름을 폰 연락처와 서로 맞춰요. 등록 안 한 연락처는 폰 밖으로 안 보내요.', perm) +
     item(p.notif, '알림', '처음 보는 번호와 통화하면 「다시 연락할 사람인가요?」로 물어요.', perm) +
     item(p.overlay !== false, '다른 앱 위에 표시', '통화가 끝나면 작은 창으로 바로 물어요.', '<button class="btn small" onclick="N.openOverlay()">켜기</button>') +
     item(p.battery, '배터리 「제한 없음」', '앱이 잠들어 통화를 놓치지 않게 해요.', '<button class="btn small" onclick="N.openBattery()">켜기</button>') +
     `<div class="muted" style="margin:10px 4px">켜기를 눌러도 안 켜지면: 앱 정보 → ⋮ → 「제한된 설정 허용」 → 권한</div>
     <div style="display:flex;gap:8px"><button class="btn ghost" style="flex:1" onclick="N.openAppSettings()">앱 정보</button><button class="btn" style="flex:2" onclick="closeSheet();renderHome()">다 했어요</button></div>`);
+};
+
+// ---- 이름 맞추기: 서로 다른 이름 중 하나를 고른다 ----
+const namePicked = {};   // 방금 고른 사람(폰이 맞추는 동안 다시 안 보이게)
+window.openNameAsks = function () {
+  let na = []; try { na = JSON.parse(N.nameAsks()); } catch (e) {}
+  na = na.filter((x) => !namePicked[x.id]);
+  if (!na.length) { closeSheet(); N.syncNow(); renderHome(); return; }
+  sheet(`<h3>이름이 서로 달라요</h3><div class="muted" style="margin:0 4px 10px">고른 이름으로 관계 기록과 폰 연락처가 같이 바뀌어요. 다음부터는 한쪽에서 바꾸면 다른 쪽도 따라 바뀌어요.</div>` +
+    na.map((x, i) => `<div class="row" style="padding:10px 4px;display:block">
+      <button class="opt" onclick="pickName(${i},'s')"><span class="muted">관계 기록</span> <b>${esc(x.s)}</b></button>
+      <button class="opt" onclick="pickName(${i},'c')"><span class="muted">연락처</span> <b>${esc(x.c)}</b></button></div>`).join('') +
+    `<button class="btn ghost full" onclick="closeSheet();N.syncNow()">나중에</button>`);
+  openNameAsks.list = na;
+};
+window.pickName = function (i, which) {
+  const x = (openNameAsks.list || [])[i]; if (!x) return;
+  N.namePick(x.id, which); namePicked[x.id] = 1;
+  openNameAsks();
 };
 
 window.notPerson = function (phone) { N.notPerson(phone); toast('제외했어요. 다시 안 물어요'); renderHome(); };
@@ -610,6 +633,7 @@ window.attachTo = async function (id) {
   try {
     await rpc('rel_save_person', { p_id: p.id, p_name: p.name, p_areas: p.areas, p_phones: p.phones.concat([phone]) });
     N.answered(phone, p.id, p.name);
+    if (N.nameSaved) { N.nameSaved(p.id); N.syncNow(); } // 새 번호의 연락처 이름도 맞춘다
     toast(p.name + '에게 번호를 붙였어요');
     await load(); stack.length = 0; stack.push('home'); cur = p.id; show('person'); renderPerson();
   } catch (e) { toast(e.message); }
@@ -630,6 +654,7 @@ $('#f-save').onclick = async () => {
     // 답 안 한 번호였으면 모아 둔 통화를 이 사람에게
     let pend = []; try { pend = JSON.parse(N.pending()); } catch (e) {}
     for (const x of pend) if (phones.includes(x.phone)) N.answered(x.phone, r.id, name);
+    if (N.nameSaved) { N.nameSaved(r.id); N.syncNow(); } // 폰 연락처 이름도 이 이름으로(연락처에 없으면 새로 만든다)
     toast('저장했어요');
     await load();
     cur = r.id; stack.length = 0; stack.push('home'); show('person'); renderPerson();

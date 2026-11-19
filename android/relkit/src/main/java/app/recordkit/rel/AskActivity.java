@@ -197,7 +197,9 @@ public class AskActivity extends Activity {
                 JSONObject o = r.status == 200 ? new JSONObject(r.body) : null;
                 if (o != null && o.has("id")) {
                     Calls.answered(app, phone, o.getString("id"), fn);
+                    Store.get(app).addNamePush(o.getString("id")); // 연락처 이름도 이 이름으로(없으면 새로 만든다)
                     Calls.send(app);
+                    CallJob.soon(app); // 조금 뒤 이름 맞추기까지 한 바퀴
                     runOnUiThread(() -> {
                         Toast.makeText(app, fn + " 저장했어요", Toast.LENGTH_SHORT).show();
                         finish();

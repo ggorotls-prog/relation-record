@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <!-- 선택: 연락처 번호를 제외 목록에 넣을 때, 알림에 연락처 이름 보여 줄 때 -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- 등록한 사람의 이름을 폰 연락처와 서로 맞출 때(이름 바꾸기·새 연락처 만들기. 지우는 일은 없음) -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
