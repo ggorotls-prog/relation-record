@@ -42,6 +42,8 @@ final class Calls {
             if (st.token().isEmpty()) { loginNotice(c); return; } // 로그인이 풀렸으면 멈춤(알림으로 알린다)
             scan(c);
             send(c);
+            Names.sync(c); // 폰 연락처 이름 ↔ 관계 기록 이름 맞추기(통화 묻기가 늦어지지 않게 맨 뒤)
+            if (st.token().isEmpty()) loginNotice(c);
         }
     }
 
