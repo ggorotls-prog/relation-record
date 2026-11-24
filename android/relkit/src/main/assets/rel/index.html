@@ -124,7 +124,7 @@ textarea{resize:none;min-height:72px}
   <div id="f-attach"></div>
   <div class="field"><label>이름</label><input id="f-name" maxlength="60" placeholder="이름(소속) · 폰 연락처에도 같은 이름으로 들어가요"></div>
   <div class="field"><label>번호</label><textarea id="f-phones" rows="1" style="min-height:0;height:auto;overflow:hidden" placeholder="번호가 여럿이면 줄을 바꿔 적어요"></textarea></div>
-  <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 무슨 일로 연락하는 사람인가요? 일이 아니거나 모르겠으면 「개인」</span></label><div id="f-areas"></div>
+  <div class="field"><label>영역 <span class="muted" style="font-weight:400">· 무슨 일로 연락하는 사람인가요? 일이 아니면 「개인」</span></label><div id="f-areas"></div>
     <div class="muted" id="f-area-help" style="margin:2px 2px 0"></div></div>
   <div class="err" id="f-err"></div>
   <button class="btn full" id="f-save">저장</button>
@@ -257,6 +257,8 @@ const chip = (a) => `<span class="chip${isPriv(a) ? ' me' : ''}">${esc(a)}</span
 async function load() {
   try {
     D = await rpc('rel_sync');
+    // 「가정」은 관계 기록에서 안 쓴다(가족은 「개인」, 2026-11-24 룡). 업무 기록 영역에는 그대로 있다
+    D.me.areas = (D.me.areas || []).filter((a) => a !== '가정');
     if (N.setAreas) N.setAreas(JSON.stringify(D.me.areas || [])); // 통화 끝 작은 창에서 영역 고르기용
   } catch (e) { toast(e.server ? '불러오지 못했어요. 아래로 당겨 다시 해 주세요. 계속 안 되면 관리자에게 말해 주세요.' : e.message); }
   render();
@@ -586,8 +588,8 @@ window.delRec = async function (id) {
 function fitPhones() { const t = $('#f-phones'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
 $('#f-phones').oninput = fitPhones;
 function openForm(p, phone, name) {
-  // 새 사람은 「개인」이 미리 골라져 있다(2026-11-13 룡: 모르겠으면 그냥 저장). 일 영역을 처음 누르면 그 영역으로 바뀐다
-  form = { id: p ? p.id : null, areas: p ? p.areas.slice() : ['개인'], defaulted: !p, fromPhone: phone || '' };
+  // 새 사람은 아무 영역도 미리 골라 두지 않는다(2026-11-24 룡: 기본값 없앰). 고르지 않으면 저장이 막힌다
+  form = { id: p ? p.id : null, areas: p ? p.areas.slice() : [], fromPhone: phone || '' };
   $('#f-title').textContent = p ? '고치기' : '사람 등록';
   $('#f-name').value = p ? p.name : (name || '');
   $('#f-phones').value = p ? p.phones.map(pretty).join('\n') : (phone ? pretty(phone) : '');
@@ -616,9 +618,7 @@ function renderAreas() {
 }
 window.toggleArea = function (a) {
   const i = form.areas.indexOf(a);
-  if (form.defaulted && i < 0) form.areas = [a];
-  else if (i >= 0) form.areas.splice(i, 1); else form.areas.push(a);
-  form.defaulted = false;
+  if (i >= 0) form.areas.splice(i, 1); else form.areas.push(a);
   renderAreas();
 };
 // 지금 번호 → 기존 사람
